@@ -21,7 +21,10 @@
     "verify:credit": "tsx scripts/verify-credit.ts",
     "verify:progress-check": "tsx scripts/verify-progress-check.ts",
     "verify:qa-audit-security": "tsx scripts/verify-qa-audit-security.ts",
-    "verify:password-reset": "tsx scripts/verify-password-reset.ts"
+    "verify:password-reset": "tsx scripts/verify-password-reset.ts",
+    "pilot:setup": "tsx scripts/setup-pilot-test-kit.ts",
+    "pilot:scenarios": "tsx scripts/run-pilot-scenarios.ts",
+    "pilot:reset-scenarios": "tsx scripts/reset-pilot-scenario-state.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

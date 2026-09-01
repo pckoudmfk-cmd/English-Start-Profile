@@ -16,9 +16,11 @@
 [`docs/STAGE_9_REPORT.md`](docs/STAGE_9_REPORT.md),
 [`docs/STAGE_10_REPORT.md`](docs/STAGE_10_REPORT.md),
 [`docs/STAGE_11_QA_REPORT.md`](docs/STAGE_11_QA_REPORT.md) (финальный
-QA-аудит) и [`docs/STAGE_12_REPORT.md`](docs/STAGE_12_REPORT.md)
+QA-аудит), [`docs/STAGE_12_REPORT.md`](docs/STAGE_12_REPORT.md)
 (стабилизация — приложение готово к ручному пользовательскому
-тестированию).
+тестированию) и [`docs/STAGE_13_PILOT_TEST_REPORT.md`](docs/STAGE_13_PILOT_TEST_REPORT.md)
+(подготовка к пилотному тестированию — постоянный набор тестовых
+аккаунтов и сценариев).
 
 ## Реализовано
 
@@ -404,6 +406,22 @@ IDOR на attempt-id Start Diagnostic и анкеты (студент угады
 корректность ответа диагностики)
 (см. [`backend/scripts/verify-qa-audit-security.ts`](backend/scripts/verify-qa-audit-security.ts),
 [`docs/STAGE_11_QA_REPORT.md`](docs/STAGE_11_QA_REPORT.md)).
+
+## Пилотный тестовый набор (Этап 13)
+
+Постоянный, воспроизводимый набор тестовых аккаунтов для пилотного
+тестирования — Teacher Test Account, Student A/B/C, тестовая группа с
+уже реалистично заполненными данными. Явно отделён от любых реальных
+данных (домен email `.test`, маркер «(ПИЛОТ-ТЕСТ)» в каждом названии)
+— подробности и полный список сценариев в
+[`docs/STAGE_13_PILOT_TEST_REPORT.md`](docs/STAGE_13_PILOT_TEST_REPORT.md).
+
+```bash
+cd backend
+npm run pilot:setup       # создать/найти Teacher + Student A/B/C + группу (идемпотентно)
+npm run pilot:scenarios   # прогнать сценарии (достижения, зачёт, Progress Check)
+npm run pilot:reset-scenarios  # сбросить сценарии для повторной демонстрации
+```
 
 ## Переменные окружения
 
