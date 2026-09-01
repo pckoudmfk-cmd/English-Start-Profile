@@ -17,7 +17,8 @@
     "verify:diagnostic": "tsx scripts/verify-diagnostic.ts",
     "verify:dashboard": "tsx scripts/verify-dashboard.ts",
     "verify:student-profile": "tsx scripts/verify-student-profile.ts",
-    "verify:achievements": "tsx scripts/verify-achievements.ts"
+    "verify:achievements": "tsx scripts/verify-achievements.ts",
+    "verify:credit": "tsx scripts/verify-credit.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

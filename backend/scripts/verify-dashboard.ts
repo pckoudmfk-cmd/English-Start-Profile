@@ -268,7 +268,14 @@ async function main() {
     dashA.body?.kpi?.qualificationPoints?.implemented === true && dashA.body?.kpi?.qualificationPoints?.total === 0,
     dashA.body?.kpi?.qualificationPoints
   );
-  check("«Готовы к зачёту» (полная готовность) — по-прежнему честно implemented:false (нужны ещё допуск и тест)", dashA.body?.kpi?.credit?.implemented === false, dashA.body?.kpi?.credit);
+  check(
+    // Этап 9: модуль «Зачёт» реализован целиком — "Готовы к зачёту"
+    // теперь реальное число (студентов с "Итог" = "Зачёт завершён"),
+    // а не честная заглушка, как было до Этапа 9.
+    "«Готовы к зачёту» — implemented:true, реальное число (Этап 9)",
+    dashA.body?.kpi?.credit?.implemented === true && dashA.body?.kpi?.credit?.completedCount === 0,
+    dashA.body?.kpi?.credit
+  );
 
   console.log("\n«Требуют внимания» — комбинация факторов, а не одиночный показатель");
   const attention = dashA.body?.attention ?? [];
@@ -328,12 +335,12 @@ async function main() {
   check("У «opportunity» в таблице diagnosticPercentage = 100", oppRow?.diagnosticPercentage === 100, oppRow);
   check("У «opportunity» потенциал совпадает с блоком «Возможности развития»", oppRow?.potentialLabel === "Конференционный потенциал", oppRow);
   check(
-    // Этап 8: реальные числа (0 для всех — ни один из этих 5 студентов
-    // не подтверждён в этом тесте), не выдуманный null и не "модуль не
-    // реализован" — creditStatus теперь REQUIRED/EXEMPTED (статус устной
-    // части, единственное, что однозначно вычислимо из одних баллов).
-    "Квалификационные баллы/статус устной части в строках — реальные значения (Этап 8)",
-    students.every((s: any) => s.qualificationPoints === 0 && s.creditStatus === "REQUIRED"),
+    // Этап 9: creditStatus в строке студента — теперь полный "Итог"
+    // зачёта (NOT_ADMITTED/ADMITTED/ORAL_REQUIRED/COMPLETED), а не
+    // только статус устной части, как было на Этапе 8. Ни один из этих
+    // 5 студентов не подавал допуск в этом тесте → NOT_ADMITTED.
+    "Квалификационные баллы/полный статус зачёта в строках — реальные значения (Этап 9)",
+    students.every((s: any) => s.qualificationPoints === 0 && s.creditStatus === "NOT_ADMITTED"),
     students.map((s: any) => ({ qualificationPoints: s.qualificationPoints, creditStatus: s.creditStatus }))
   );
 
@@ -345,14 +352,14 @@ async function main() {
     dashA.body?.progress
   );
   check(
-    // Этап 8: 2 из 4 подпунктов теперь реальны (квалификационные баллы,
-    // статус устной части); допуск по словарю и лексико-грамматический
-    // тест по-прежнему честно не реализованы.
-    "«Прогресс по зачёту»: баллы и устная часть реальны, словарь/тест — честно не реализованы",
+    // Этап 9: все 4 подпункта "Прогресса по зачёту" теперь реальны —
+    // допуск по словарю и лексико-грамматический тест достроены поверх
+    // квалификационных баллов и устной части (Этап 8).
+    "«Прогресс по зачёту»: все 4 подпункта реальны (Этап 9)",
     dashA.body?.credit?.qualificationPoints?.implemented === true &&
       dashA.body?.credit?.oralPart?.implemented === true &&
-      dashA.body?.credit?.vocabulary?.implemented === false &&
-      dashA.body?.credit?.lexicoGrammarTest?.implemented === false,
+      dashA.body?.credit?.vocabulary?.implemented === true &&
+      dashA.body?.credit?.lexicoGrammarTest?.implemented === true,
     dashA.body?.credit
   );
 

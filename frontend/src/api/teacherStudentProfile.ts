@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { AttemptStatus, GapCategory, OralPartStatus } from "./teacherDashboard";
+import type { AttemptStatus, CreditOverallStatus, GapCategory, OralPartStatus } from "./teacherDashboard";
 import type { AchievementStatus, ClaimedResult, EventType } from "./achievements";
 
 // Типы отражают форму ответов backend (см. backend/src/routes/
@@ -61,7 +61,8 @@ export interface OverviewResponse {
     autonomy: number | null;
     // Этап 8: реальные данные модуля достижений.
     qualificationPoints: { implemented: true; points: number; oralPartStatus: OralPartStatus; pointsUntilExemption: number };
-    creditStatus: { implemented: false }; // полный статус зачёта — по-прежнему не реализован
+    // Этап 9: полный "Итог" зачёта (было honest-стабом до появления модуля).
+    creditStatus: { implemented: true; status: CreditOverallStatus; statusLabel: string };
   };
   overview: {
     available: boolean;
@@ -99,7 +100,16 @@ export interface OverviewResponse {
       qualificationPoint: number;
     }[];
   };
-  credit: { implemented: false };
+  // Этап 9: полный конвейер зачёта (ТЗ п.32).
+  credit: {
+    implemented: true;
+    overallStatus: CreditOverallStatus;
+    overallStatusLabel: string;
+    dictionary: { status: string | null; statusLabel: string; wordCount: number | null };
+    test: { status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"; attemptsUsed: number; maxAttempts: number; result: { correctCount: number; totalCount: number } | null };
+    qualificationPoints: { points: number; oralPartExempt: boolean; pointsUntilExemption: number };
+    oral: { status: string; topic: { id: string; en: string; ru: string } | null; preliminaryGrade: string | null; finalGrade: string | null; exemptionReason: string | null };
+  };
   progress: {
     status: "NOT_CONDUCTED";
     recommendedAfterMonths: [number, number];

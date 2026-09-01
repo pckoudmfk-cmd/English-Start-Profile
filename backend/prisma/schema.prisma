@@ -34,16 +34,26 @@ model User {
   courses       Course[]
   groups        Group[]
 
-  groupMemberships GroupMembership[]
+  groupMemberships      GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
   diagnosticAttempts    DiagnosticAttempt[]
-  teacherNotesAuthored  TeacherNote[] @relation("TeacherNoteAuthor")
-  teacherNotesAboutMe   TeacherNote[] @relation("TeacherNoteStudent")
-  goalStatusesAuthored  StudentGoalStatus[] @relation("GoalStatusAuthor")
-  goalStatusesAboutMe   StudentGoalStatus[] @relation("GoalStatusStudent")
-  achievementsAsStudent Achievement[] @relation("AchievementStudent")
-  achievementsReviewed  Achievement[] @relation("AchievementTeacher")
+  teacherNotesAuthored  TeacherNote[]          @relation("TeacherNoteAuthor")
+  teacherNotesAboutMe   TeacherNote[]          @relation("TeacherNoteStudent")
+  goalStatusesAuthored  StudentGoalStatus[]    @relation("GoalStatusAuthor")
+  goalStatusesAboutMe   StudentGoalStatus[]    @relation("GoalStatusStudent")
+  achievementsAsStudent Achievement[]          @relation("AchievementStudent")
+  achievementsReviewed  Achievement[]          @relation("AchievementTeacher")
   qualificationPoints   QualificationPoint[]
+
+  // Этап 9: ДИФФЕРЕНЦИРОВАННЫЙ ЗАЧЁТ.
+  creditSettingsAuthored        CreditSettings[]       @relation("CreditSettingsTeacher")
+  dictionarySubmissions         DictionarySubmission[] @relation("DictionarySubmissionStudent")
+  dictionarySubmissionsReviewed DictionarySubmission[] @relation("DictionarySubmissionTeacher")
+  creditTestItemsAuthored       CreditTestItem[]       @relation("CreditTestItemTeacher")
+  creditTestAttempts            CreditTestAttempt[]    @relation("CreditTestAttemptStudent")
+  oralAssessmentsAsStudent      OralAssessment[]       @relation("OralAssessmentStudent")
+  oralAssessmentsAssigned       OralAssessment[]       @relation("OralAssessmentAssignedBy")
+  oralAssessmentsGraded         OralAssessment[]       @relation("OralAssessmentGradedBy")
 
   @@index([role])
 }
@@ -135,13 +145,19 @@ model Group {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  joinCodes   GroupJoinCode[]
+  joinCodes             GroupJoinCode[]
   memberships           GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
   diagnosticAttempts    DiagnosticAttempt[]
   teacherNotes          TeacherNote[]
   goalStatuses          StudentGoalStatus[]
   achievements          Achievement[]
+
+  // Этап 9: ДИФФЕРЕНЦИРОВАННЫЙ ЗАЧЁТ — привязаны к группе (конкретному
+  // учебному циклу студента), а не только к курсу.
+  dictionarySubmissions DictionarySubmission[]
+  creditTestAttempts    CreditTestAttempt[]
+  oralAssessments       OralAssessment[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -179,12 +195,12 @@ model GroupJoinCode {
 // но поле уже здесь, чтобы при появлении этой функции не пришлось менять
 // смысл существующих строк задним числом.
 model GroupMembership {
-  id        String   @id @default(uuid())
-  studentId String
-  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  groupId   String
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  status    String   @default("ACTIVE") // ACTIVE | REMOVED
+  id            String    @id @default(uuid())
+  studentId     String
+  student       User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId       String
+  group         Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  status        String    @default("ACTIVE") // ACTIVE | REMOVED
   // Код, которым студент воспользовался при присоединении — снимок на
   // момент подключения. Не ссылка на GroupJoinCode: тот код мог быть
   // потом регенерирован или деактивирован, а исторический факт "как
@@ -257,14 +273,14 @@ model QuestionnaireAttempt {
 // категорию — это и есть "подготовленные для аналитики данные" из ТЗ,
 // без вычисления самих индексов на этом этапе.
 model QuestionnaireAnswer {
-  id           String   @id @default(uuid())
+  id           String               @id @default(uuid())
   attemptId    String
   attempt      QuestionnaireAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   questionCode String
   valueJson    String
   indexGroup   String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@unique([attemptId, questionCode])
   @@index([attemptId])
@@ -321,14 +337,14 @@ model DiagnosticAttempt {
 // переклассифицируют, исторический ответ не должен менять категорию
 // задним числом.
 model DiagnosticAnswer {
-  id                 String   @id @default(uuid())
-  attemptId          String
-  attempt            DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  itemId             String
-  skill              String   // GRAMMAR | VOCABULARY | READING | LISTENING
+  id                  String            @id @default(uuid())
+  attemptId           String
+  attempt             DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  itemId              String
+  skill               String // GRAMMAR | VOCABULARY | READING | LISTENING
   selectedOptionIndex Int
-  correct            Boolean
-  answeredAt         DateTime @default(now())
+  correct             Boolean
+  answeredAt          DateTime          @default(now())
 
   @@unique([attemptId, itemId])
   @@index([attemptId])
@@ -350,15 +366,15 @@ model DiagnosticAnswer {
 // пока такая матрица не появится и не будет явно подтверждена — это
 // осознанное решение, а не недоделанная часть.
 model DiagnosticResult {
-  id                 String   @id @default(uuid())
-  attemptId          String   @unique
+  id                 String            @id @default(uuid())
+  attemptId          String            @unique
   attempt            DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   overallCorrect     Int
   overallTotal       Int
   overallPercentage  Float
   skillBreakdownJson String
   diagnosticRange    String?
-  computedAt         DateTime @default(now())
+  computedAt         DateTime          @default(now())
 }
 
 // ---------------------------------------------------------------------
@@ -452,11 +468,11 @@ model StudentGoalStatusEvent {
 // ---------------------------------------------------------------------
 
 model Achievement {
-  id        String @id @default(uuid())
-  studentId String
-  student   User   @relation("AchievementStudent", fields: [studentId], references: [id], onDelete: Cascade)
-  groupId   String
-  group     Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  id             String @id @default(uuid())
+  studentId      String
+  student        User   @relation("AchievementStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   // Снимок на момент создания — тот же приём защиты в глубину, что и у
   // QuestionnaireAttempt/DiagnosticAttempt (см. комментарии там):
   // courseId/academicYearId не выводятся через group->course на лету,
@@ -482,9 +498,9 @@ model Achievement {
   description        String?
 
   // DRAFT | PENDING | CONFIRMED | CONFIRMED_NO_POINT | REJECTED | NEEDS_CLARIFICATION
-  status String @default("DRAFT")
+  status             String @default("DRAFT")
   // Денормализованный кэш 0/1 — источник истины см. QualificationPoint.
-  qualificationPoint Int @default(0)
+  qualificationPoint Int    @default(0)
 
   teacherId      String?
   teacher        User?   @relation("AchievementTeacher", fields: [teacherId], references: [id])
@@ -520,7 +536,7 @@ model AchievementEvidence {
   storedName    String // имя файла на диске (uuid + расширение)
   mimeType      String
   size          Int
-  uploadedAt    DateTime @default(now())
+  uploadedAt    DateTime    @default(now())
 
   @@index([achievementId])
 }
@@ -544,8 +560,8 @@ model QualificationPoint {
   // значения баллов для разных мероприятий") — поле Int, а не
   // захардкоженная константа в коде, чтобы будущее расширение (ТЗ п.37)
   // не требовало миграции схемы, если правило когда-нибудь изменится.
-  value     Int      @default(1)
-  createdAt DateTime @default(now())
+  value         Int         @default(1)
+  createdAt     DateTime    @default(now())
 
   @@index([studentId, groupId])
   @@index([groupId])
@@ -563,11 +579,325 @@ model AchievementAuditLog {
   // CREATED | SUBMITTED | EDITED | EVIDENCE_ADDED | EVIDENCE_REMOVED |
   // CLARIFICATION_REQUESTED | CONFIRMED | CONFIRMED_NO_POINT |
   // POINT_AWARDED | REJECTED | STATUS_REVERTED | POINT_REVOKED
-  action    String
-  fromValue String?
-  toValue   String?
-  reason    String?
-  createdAt DateTime @default(now())
+  action        String
+  fromValue     String?
+  toValue       String?
+  reason        String?
+  createdAt     DateTime    @default(now())
 
   @@index([achievementId])
+}
+
+// ---------------------------------------------------------------------
+// Этап 9: МОДУЛЬ «ДИФФЕРЕНЦИРОВАННЫЙ ЗАЧЁТ».
+//
+// Критическое разделение данных (ТЗ п.2): это ОТДЕЛЬНЫЙ учебный
+// процесс со своими результатами/статусами/историей — ни одна из
+// моделей ниже не использует QuestionnaireAttempt/DiagnosticAttempt
+// (в т.ч. их зарезервированное, но никогда не заполнявшееся значение
+// kind = "CREDIT" — оно намеренно остаётся неиспользуемым, чтобы не
+// смешивать Start Diagnostic/Progress Check с зачётом) и ни одно из
+// решений этого модуля не переносится автоматически в другой модуль.
+//
+// courseId/academicYearId хранятся как снимок строкой на каждой модели
+// (тот же приём защиты в глубину, что и у Achievement/QuestionnaireAttempt
+// выше) — без relation-объекта на Course, по тому же соглашению, что и
+// у Achievement.
+// ---------------------------------------------------------------------
+
+// Настройки зачёта на курс (ТЗ п.14, 16 — "это настройка, значение по
+// умолчанию 1/не всегда показывать ответы, преподаватель может
+// изменить в будущем"). Ровно один ряд на курс. Управляющего интерфейса
+// на этом этапе может не быть везде, но поля существуют как реальная
+// настройка (не константа в коде), чтобы будущее изменение не требовало
+// миграции.
+model CreditSettings {
+  id                   String   @id @default(uuid())
+  courseId             String   @unique
+  teacherId            String
+  teacher              User     @relation("CreditSettingsTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  // ТЗ п.14: "количество попыток — это настройка, по умолчанию 1".
+  maxTestAttempts      Int      @default(1)
+  // ТЗ п.16: "показ правильных ответов зависит от политики курса —
+  // не жёстко закодировано как всегда показывать". По умолчанию НЕ
+  // показывать — это осознанно самый безопасный дефолт (не выдаёт
+  // банк ответов без явного решения преподавателя), а не выдуманное
+  // правило.
+  revealCorrectAnswers Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+// Допуск к зачёту — предоставление активного словаря (ТЗ п.4-6).
+// Каждая отправка — новая строка (не редактирование существующей):
+// это тот же принцип "история не переписывается" (ТЗ п.33), что и у
+// Achievement/AchievementAuditLog, и одновременно естественный ответ на
+// сценарий "преподаватель отклонил / запросил уточнение — студент
+// отправляет заново": вместо реюза одной изменяемой записи со сложной
+// таблицей переходов статусов создаётся новая запись, а старая
+// остаётся зафиксированным историческим фактом. "Текущий" статус
+// допуска — статус САМОЙ ПОСЛЕДНЕЙ по времени отправки записи для пары
+// (студент, группа).
+//
+// status: SUBMITTED (только что отправлено) | UNDER_REVIEW
+// (преподаватель открыл карточку — явное действие "Открыть", ТЗ п.7) |
+// NEEDS_CLARIFICATION | CONFIRMED | REJECTED. НИКОГДА не подтверждается
+// автоматически, только явным действием преподавателя (ТЗ п.5).
+model DictionarySubmission {
+  id             String @id @default(uuid())
+  studentId      String
+  student        User   @relation("DictionarySubmissionStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+
+  // Заявленное студентом количество слов (ТЗ п.6) — заявление, не факт;
+  // подтверждение — только явное решение преподавателя (ТЗ п.5).
+  wordCount   Int
+  description String?
+  link        String? // необязательная ссылка (ТЗ п.6)
+
+  status         String    @default("SUBMITTED")
+  teacherId      String?
+  teacher        User?     @relation("DictionarySubmissionTeacher", fields: [teacherId], references: [id])
+  teacherComment String?
+  reviewedAt     DateTime?
+
+  createdAt DateTime @default(now()) // = дата отправки (submittedAt отдельного поля не нужно — запись создаётся уже "отправленной", черновика нет)
+
+  files DictionarySubmissionFile[]
+
+  @@index([studentId, groupId])
+  @@index([groupId])
+  @@index([status])
+}
+
+// Файлы допуска. Отдельная таблица (как AchievementEvidence) — можно
+// приложить несколько файлов; формат НЕ ограничен одним типом (ТЗ
+// п.6 — "не ограничивать реализацию только одним форматом файла"), см.
+// uploads/dictionaryStorage.ts за расширенным (по сравнению с
+// достижениями) списком допустимых MIME-типов.
+model DictionarySubmissionFile {
+  id           String               @id @default(uuid())
+  submissionId String
+  submission   DictionarySubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  fileName     String
+  storedName   String
+  mimeType     String
+  size         Int
+  uploadedAt   DateTime             @default(now())
+
+  @@index([submissionId])
+}
+
+// Банк заданий лексико-грамматического теста (ТЗ п.11) — в БД (в
+// отличие от диагностического банка на Этапе 5, который в коде), потому
+// что ТЗ п.10 прямо требует, чтобы преподаватель мог управлять банком
+// (создавать/редактировать/деактивировать задания) — это принципиально
+// не статичный курируемый контент. correctOptionIndex НЕ отдаётся
+// студенту до завершения попытки (см. сериализацию в routes) — тот же
+// принцип "не утекает через API", что и у DiagnosticAttempt, только
+// обеспечивается выбором полей сериализации, а не расположением банка
+// вне БД.
+//
+// grammarTopic — СТРОГО один из 11 значений ТЗ п.9 (перечислены в
+// backend/src/credit/constants.ts), другие темы не добавляются без
+// отдельного согласования (ТЗ п.37).
+model CreditTestItem {
+  id             String @id @default(uuid())
+  teacherId      String
+  teacher        User   @relation("CreditTestItemTeacher", fields: [teacherId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+
+  question           String // на английском (ТЗ п.11 — контент на английском)
+  optionsJson        String // JSON-массив строк вариантов (английский)
+  correctOptionIndex Int
+  grammarTopic       String
+  // Лексическая тема — текстом (не фиксированный список): словарь
+  // должен браться из реальных материалов курса (ТЗ п.10), а не из
+  // общего английского, поэтому это открытое поле, которое заполняет
+  // сам преподаватель по своим материалам, а не выбор из выдуманного
+  // здесь перечня.
+  vocabularyTopic    String
+  // EASY | MEDIUM | HARD — ТЗ требует само поле "difficulty", но не
+  // определяет шкалу; выбрана минимальная трёхуровневая шкала как
+  // самое скромное, безопасное допущение (задокументировано в отчёте
+  // как решение, требующее подтверждения).
+  difficulty         String  @default("MEDIUM")
+  active             Boolean @default(true)
+  // Пояснение к правильному ответу на русском (ТЗ п.11 — "объяснение
+  // после проверки на русском"), необязательно.
+  explanationRu      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([active])
+}
+
+// Попытка лексико-грамматического теста (ТЗ п.13-14). Каждая попытка —
+// НОВАЯ строка, никогда не перезаписывается (ТЗ п.13, 33) — в отличие
+// от DiagnosticAttempt (Этап 5), где на пару (студент, группа) ровно
+// одна строка; здесь их может быть несколько, а число попыток
+// ограничено настройкой CreditSettings.maxTestAttempts. attemptNumber —
+// последовательный номер попытки этого студента в этой группе (1, 2, …);
+// уникальный индекс на (studentId, groupId, attemptNumber) — та же
+// защита от гонки на уровне БД, что и у QuestionnaireAttempt/
+// DiagnosticAttempt: даже два одновременных запроса "начать попытку" не
+// создадут два ряда с одинаковым номером.
+model CreditTestAttempt {
+  id             String @id @default(uuid())
+  studentId      String
+  student        User   @relation("CreditTestAttemptStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+  attemptNumber  Int
+
+  status       String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  correctCount Int?
+  totalCount   Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  answers CreditTestAnswer[]
+
+  @@unique([studentId, groupId, attemptNumber])
+  @@index([studentId, groupId])
+}
+
+// Один вопрос в рамках попытки. Все 10 строк создаются ОДНОВРЕМЕННО при
+// старте попытки (не лениво при ответе, как DiagnosticAnswer) — это
+// нужно, чтобы студент мог свободно перемещаться вперёд/назад и менять
+// ответ до завершения (ТЗ п.12: "выбор/далее/назад/изменение ответа до
+// завершения"), а не только отвечать по порядку один раз, как в
+// диагностике.
+//
+// question/optionsSnapshot/correctOptionIndexSnapshot/grammarTopicSnapshot
+// — СНИМОК соответствующих полей CreditTestItem на момент начала
+// попытки (тот же приём, что и indexGroup/skill в QuestionnaireAnswer/
+// DiagnosticAnswer): если преподаватель потом отредактирует или
+// деактивирует задание в банке, уже пройденная попытка не должна
+// задним числом измениться. itemId хранится как обычная строка (без
+// FK-связи) — только для трассируемости "из какого задания банка
+// взято", сама попытка полностью самодостаточна по снимку и не
+// зависит от того, существует ли ещё эта строка в банке.
+model CreditTestAnswer {
+  id         String            @id @default(uuid())
+  attemptId  String
+  attempt    CreditTestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  itemId     String
+  orderIndex Int
+
+  questionSnapshot           String
+  optionsSnapshotJson        String
+  correctOptionIndexSnapshot Int
+  grammarTopicSnapshot       String
+
+  selectedOptionIndex Int?
+  correct             Boolean?
+  answeredAt          DateTime?
+
+  @@unique([attemptId, itemId])
+  @@index([attemptId])
+}
+
+// Устная часть (ТЗ п.17-22, 25-26). Один ряд на пару (студент, группа) —
+// один зачётный цикл имеет ровно одну устную часть (назначенную ЛИБО
+// освобождённую), в отличие от DictionarySubmission/CreditTestAttempt,
+// где допустимо много попыток/отправок. Правки статуса (назначение →
+// черновик оценки → подтверждение) идут ОДНОЙ и той же строкой, а не
+// новыми записями — устная часть не переотправляется студентом
+// (в отличие от словаря), поэтому переиспользование строки здесь не
+// нарушает "история не переписывается": это одна и та же процедура, а
+// не серия независимых попыток.
+//
+// status: ASSIGNED (тема назначена, беседа/оценка ещё впереди) |
+// GRADED_DRAFT (преподаватель заполнил критерии — есть предварительный
+// результат, но НЕ подтверждён, ТЗ п.22) | CONFIRMED (итоговая оценка
+// подтверждена преподавателем — только это и означает "устная часть
+// завершена" для расчёта общего статуса, см. analytics/credit.ts) |
+// EXEMPTED (освобождён по баллам, ТЗ п.25-26 — создаётся даже когда
+// устная часть не проводилась, для истории).
+model OralAssessment {
+  id             String @id @default(uuid())
+  studentId      String
+  student        User   @relation("OralAssessmentStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+
+  status String
+
+  // Назначение темы (ТЗ п.19 — только преподаватель, без случайного
+  // автоназначения). topicId — код одной из 17 утверждённых тем (ТЗ
+  // п.18, см. constants.ts), null только для EXEMPTED.
+  topicId             String?
+  assignedByTeacherId String?
+  assignedByTeacher   User?     @relation("OralAssessmentAssignedBy", fields: [assignedByTeacherId], references: [id])
+  assignedAt          DateTime?
+  assignedComment     String?
+
+  // 6 критериев оценки (ТЗ п.21) — каждое поле хранит один из
+  // фиксированных вариантов конкретного критерия (см. constants.ts).
+  // errorNatureJson — JSON-массив (может быть отмечено несколько типов
+  // ошибок одновременно: грамматические И лексические сразу).
+  criteriaTaskCompletion    String?
+  criteriaErrorCount        String?
+  criteriaErrorNatureJson   String?
+  criteriaLogic             String?
+  criteriaActiveVocabulary  String?
+  criteriaQuestionResponses String?
+
+  // Итоговая оценка — заполняется ТОЛЬКО при подтверждении (ТЗ п.22:
+  // "система никогда не завершает оценку сама"). Предварительная оценка
+  // (ТЗ п.22) намеренно НЕ хранится отдельным полем — вычисляется на
+  // лету из критериев выше (см. analytics/oralGrading.ts), чтобы не
+  // могла разойтись с текущими значениями критериев.
+  finalGrade     String?
+  teacherComment String?
+
+  gradedByTeacherId String?
+  gradedByTeacher   User?     @relation("OralAssessmentGradedBy", fields: [gradedByTeacherId], references: [id])
+  confirmedAt       DateTime?
+
+  // Только для EXEMPTED (ТЗ п.25 — фиксированная формулировка причины).
+  exemptionReason String?
+  exemptedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, groupId])
+}
+
+// Append-only журнал решений зачёта (ТЗ п.33 — "история не
+// перезаписывается": попытки теста, результаты, проверки словаря,
+// квалификационные баллы, решения преподавателя, устная часть, смены
+// статуса"). Квалификационные баллы и их история уже покрыты
+// AchievementAuditLog (Этап 8) — здесь не дублируется. Поля-владельцы —
+// простые строки без FK-связи, как у StudentGoalStatusEvent (Этап 7):
+// это чисто журнал фактов, не требующий обхода через реляционные поля.
+model CreditAuditLog {
+  id         String   @id @default(uuid())
+  studentId  String
+  groupId    String
+  entityType String // DICTIONARY | TEST | ORAL
+  entityId   String?
+  actorId    String
+  action     String
+  fromValue  String?
+  toValue    String?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([studentId, groupId])
+  @@index([groupId, entityType])
 }

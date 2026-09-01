@@ -25,6 +25,7 @@ import {
 import { buildAttentionEntry, buildOpportunityEntry, type StudentMetrics } from "../analytics/insights";
 import { average, buildMetricsForRoster, findOwnedGroupHeader, loadRoster } from "../analytics/teacherAccess";
 import { computeOralPartStatus, getGroupAchievementsSummary, getGroupQualificationPointsByStudent } from "../analytics/qualification";
+import { getGroupCreditSummary } from "../analytics/credit";
 
 const router = Router();
 
@@ -38,9 +39,12 @@ router.get("/:id/dashboard", async (req, res) => {
 
   const roster = await loadRoster(group.id);
   const metrics = await buildMetricsForRoster(group.id, roster);
-  const [achievementsSummary, pointsByStudent] = await Promise.all([
+  const [achievementsSummary, pointsByStudent, creditGroup] = await Promise.all([
     getGroupAchievementsSummary(group.id),
     getGroupQualificationPointsByStudent(group.id, roster.map((r) => r.studentId)),
+    // Этап 9: реальные данные модуля «Зачёт» — единая функция расчёта
+    // (analytics/credit.ts), не дублируется здесь.
+    getGroupCreditSummary(group.id, roster.map((r) => r.studentId)),
   ]);
 
   const diagnosticCompleted = metrics.filter((m) => m.diagnosticStatus === "COMPLETED");
@@ -86,15 +90,13 @@ router.get("/:id/dashboard", async (req, res) => {
       autonomy: m.autonomy,
       developmentArea: computeDevelopmentArea(m.skillBreakdown),
       potentialLabel: opportunity?.potentialLabel ?? null,
-      // Квалификационные баллы (Этап 8) — реальное число подтверждённых
-      // результативных достижений студента. creditStatus — только статус
-      // устной части зачёта (единственное, что однозначно вычислимо из
-      // баллов, см. analytics/qualification.ts); полный статус "готов к
-      // зачёту" требует ещё допуска по словарю и лексико-грамматического
-      // теста — этих модулей по-прежнему нет, поэтому здесь не
-      // подставляется общий "готов/не готов".
+      // Квалификационные баллы (Этап 8). creditStatus (Этап 9) — теперь
+      // полный "Итог" зачёта (analytics/credit.ts, единая точка
+      // расчёта), а не только статус устной части, как было до
+      // появления модуля "Зачёт".
       qualificationPoints: pointsByStudent.get(m.studentId) ?? 0,
-      creditStatus: computeOralPartStatus(pointsByStudent.get(m.studentId) ?? 0),
+      creditStatus: creditGroup.rows.get(m.studentId)?.overallStatus ?? "NOT_ADMITTED",
+      creditStatusLabel: creditGroup.rows.get(m.studentId)?.overallStatusLabel ?? "Не допущен",
     };
   });
 
@@ -122,13 +124,9 @@ router.get("/:id/dashboard", async (req, res) => {
         total: achievementsSummary.totalQualificationPoints,
         studentsWithFivePlus: achievementsSummary.studentsWithFivePlus,
       },
-      // "Готовы к зачёту" (KPI-плитка 6) по-прежнему честно не
-      // реализовано целиком: помимо квалификационных баллов для полной
-      // готовности нужны ещё допуск по активному словарю и
-      // лексико-грамматический тест — этих модулей нет ни на одном из
-      // этапов, подставлять только один готовый компонент как "готовность
-      // к зачёту" целиком было бы преувеличением.
-      credit: { implemented: false },
+      // "Готовы к зачёту" (KPI-плитка 6) — теперь реальное число (Этап
+      // 9): студенты с "Итог" = "Зачёт завершён".
+      credit: { implemented: true as const, completedCount: creditGroup.summary.creditCompleted, total: roster.length },
     },
     attention,
     opportunities,
@@ -141,14 +139,12 @@ router.get("/:id/dashboard", async (req, res) => {
       recommendedAfterMonths: [5, 6] as const,
     },
     credit: {
-      // "Прогресс по зачёту" (детальный блок) — 2 из 4 подпунктов теперь
-      // реальны (Этап 8): квалификационные баллы и статус устной части
-      // (единственное, однозначно вычислимое из одних только баллов).
-      // Допуск по словарю и лексико-грамматический тест по-прежнему не
-      // реализованы — честно помечены отдельно, а не средним "не
-      // реализовано" на весь блок, чтобы не занижать то, что уже есть.
-      vocabulary: { implemented: false },
-      lexicoGrammarTest: { implemented: false },
+      // "Прогресс по зачёту" (детальный блок) — все 4 подпункта теперь
+      // реальны (Этап 9 достроил допуск по словарю и лексико-
+      // грамматический тест поверх квалификационных баллов и устной
+      // части, реализованных на Этапе 8).
+      vocabulary: { implemented: true as const, confirmedCount: creditGroup.summary.admissionConfirmed, underReviewCount: creditGroup.summary.dictionaryUnderReview, total: roster.length },
+      lexicoGrammarTest: { implemented: true as const, completedCount: creditGroup.summary.testCompleted, total: roster.length },
       qualificationPoints: {
         implemented: true as const,
         total: achievementsSummary.totalQualificationPoints,
@@ -160,6 +156,9 @@ router.get("/:id/dashboard", async (req, res) => {
         requiredCount: roster.filter((r) => computeOralPartStatus(pointsByStudent.get(r.studentId) ?? 0) === "REQUIRED").length,
       },
     },
+    // Этап 9: 8 сводных чисел экрана "Зачёт" (ТЗ п.29) — переиспользуют
+    // ту же единую функцию, что и students[].creditStatus выше.
+    creditSummary: creditGroup.summary,
     achievementsPendingReview: achievementsSummary.pendingReviewCount,
     students: studentsTable,
   });

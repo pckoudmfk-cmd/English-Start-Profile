@@ -15,6 +15,8 @@ import studentGroupsRouter from "./routes/studentGroups";
 import studentQuestionnaireRouter from "./routes/studentQuestionnaire";
 import studentDiagnosticRouter from "./routes/studentDiagnostic";
 import studentAchievementsRouter from "./routes/studentAchievements";
+import studentCreditRouter from "./routes/studentCredit";
+import teacherCreditRouter from "./routes/teacherCredit";
 
 const app = express();
 
@@ -53,6 +55,10 @@ app.use("/api/teacher/groups", teacherStudentProfileRouter);
 // префикс (список фильтруется по группе как один из фильтров, а не
 // принадлежит одной группе URL-ом, см. ТЗ п.27).
 app.use("/api/teacher/achievements", teacherAchievementsRouter);
+// Этап 9: «Зачёт» — тоже отдельный, не вложенный в /groups префикс (у
+// части маршрутов групповой контекст, у части — курс/банк заданий,
+// общего с groupsRouter/teacherDashboardRouter пересечения путей нет).
+app.use("/api/teacher/credit", teacherCreditRouter);
 app.use("/api/teacher", teacherRouter);
 // Аналогично /api/teacher/* выше: /api/student/groups регистрируется до
 // общего studentRouter (у которого есть перехватывающий router.use на
@@ -61,6 +67,7 @@ app.use("/api/student/groups", studentGroupsRouter);
 app.use("/api/student/questionnaire", studentQuestionnaireRouter);
 app.use("/api/student/diagnostic", studentDiagnosticRouter);
 app.use("/api/student/achievements", studentAchievementsRouter);
+app.use("/api/student/credit", studentCreditRouter);
 app.use("/api/student", studentRouter);
 
 // Единый обработчик 404 для несуществующих API-маршрутов.

@@ -34,6 +34,10 @@ export interface OpportunityEntry {
 // баллов (см. backend/src/analytics/qualification.ts).
 export type OralPartStatus = "REQUIRED" | "EXEMPTED";
 
+// Этап 9: полный "Итог" зачёта (analytics/credit.ts) — заменил собой
+// OralPartStatus в этой строке (был только статус устной части).
+export type CreditOverallStatus = "NOT_ADMITTED" | "ADMITTED" | "ORAL_REQUIRED" | "COMPLETED";
+
 export interface DashboardStudentRow {
   studentId: string;
   fullName: string;
@@ -48,7 +52,8 @@ export interface DashboardStudentRow {
   developmentArea: string | null;
   potentialLabel: string | null;
   qualificationPoints: number;
-  creditStatus: OralPartStatus;
+  creditStatus: CreditOverallStatus;
+  creditStatusLabel: string;
 }
 
 export interface DashboardResponse {
@@ -68,18 +73,31 @@ export interface DashboardResponse {
     avgAutonomy: number | null;
     // Этап 8: реальные данные модуля достижений.
     qualificationPoints: { implemented: true; total: number; studentsWithFivePlus: number };
-    // "Готовы к зачёту" целиком — по-прежнему не реализовано (нужны ещё
-    // допуск по словарю и лексико-грамматический тест).
-    credit: { implemented: false };
+    // Этап 9: "Готовы к зачёту" — теперь реальное число студентов с
+    // "Итог" = "Зачёт завершён" (было честно implemented:false до
+    // появления полного модуля "Зачёт").
+    credit: { implemented: true; completedCount: number; total: number };
   };
   attention: AttentionEntry[];
   opportunities: OpportunityEntry[];
   progress: { status: "NOT_CONDUCTED"; recommendedAfterMonths: [number, number] };
   credit: {
-    vocabulary: { implemented: false };
-    lexicoGrammarTest: { implemented: false };
+    // Этап 9: все 4 подпункта теперь реальны.
+    vocabulary: { implemented: true; confirmedCount: number; underReviewCount: number; total: number };
+    lexicoGrammarTest: { implemented: true; completedCount: number; total: number };
     qualificationPoints: { implemented: true; total: number; studentsWithFivePlus: number };
     oralPart: { implemented: true; exemptedCount: number; requiredCount: number };
+  };
+  // Этап 9: 8 сводных чисел экрана "Зачёт" (ТЗ п.29).
+  creditSummary: {
+    totalStudents: number;
+    admissionConfirmed: number;
+    dictionaryUnderReview: number;
+    testCompleted: number;
+    fivePlusPoints: number;
+    oralExempted: number;
+    oralPending: number;
+    creditCompleted: number;
   };
   achievementsPendingReview: number;
   students: DashboardStudentRow[];

@@ -39,6 +39,8 @@ import {
 } from "../analytics/profile";
 import { findOwnedGroupHeader, studentDisplayName } from "../analytics/teacherAccess";
 import { getStudentQualificationSummary } from "../analytics/qualification";
+import { getStudentCreditSummary } from "../analytics/credit";
+import { ORAL_TOPICS } from "../credit/constants";
 
 const router = Router();
 
@@ -98,6 +100,14 @@ router.get("/:id/students/:studentId", async (req, res) => {
     prisma.achievement.count({ where: { groupId: group.id, studentId: membership.studentId, status: "CONFIRMED" } }),
     getStudentQualificationSummary(group.id, membership.studentId),
   ]);
+  // Этап 9: полная сводка зачёта (единая функция расчёта, analytics/credit.ts).
+  const creditSummary = await getStudentCreditSummary({
+    studentId: membership.studentId,
+    groupId: group.id,
+    courseId: group.courseId,
+    academicYearId: group.course.academicYearId,
+  });
+  const oralTopic = creditSummary.oral.assessment?.topicId ? ORAL_TOPICS.find((t) => t.id === creditSummary.oral.assessment!.topicId) ?? null : null;
 
   // Список достижений студента (не черновики — черновик ещё не "его"
   // для преподавателя, см. тот же принцип в routes/teacherAchievements.ts) —
@@ -170,11 +180,8 @@ router.get("/:id/students/:studentId", async (req, res) => {
     },
     header: {
       diagnosticStatus: diagnosticAttempt?.status ?? "NOT_STARTED",
-      // Полный статус зачёта как таковой не реализован (нужен ещё допуск
-      // по словарю + лексико-грамматический тест) — но статус устной
-      // части однозначно вычислим из одних только баллов (Этап 8, ТЗ
-      // п.23), поэтому в шапке честно показывается именно он.
-      creditStatusLabel: qualification.oralPartStatus === "EXEMPTED" ? "Устная часть: освобождён" : "Устная часть: требуется",
+      // Этап 9: полный статус зачёта ("Итог", analytics/credit.ts).
+      creditStatusLabel: creditSummary.overallStatusLabel,
     },
     kpi: {
       diagnosticPercentage,
@@ -184,7 +191,7 @@ router.get("/:id/students/:studentId", async (req, res) => {
       motivation,
       autonomy,
       qualificationPoints: { implemented: true as const, points: qualification.points, oralPartStatus: qualification.oralPartStatus, pointsUntilExemption: qualification.pointsUntilExemption },
-      creditStatus: { implemented: false as const }, // полный статус зачёта — по-прежнему не реализован (см. выше)
+      creditStatus: { implemented: true as const, status: creditSummary.overallStatus, statusLabel: creditSummary.overallStatusLabel },
     },
     overview: {
       available: overviewAvailable,
@@ -218,8 +225,28 @@ router.get("/:id/students/:studentId", async (req, res) => {
         qualificationPoint: a.qualificationPoint,
       })),
     },
-    // Полный модуль "Зачёт" (допуск/тест) по-прежнему не реализован.
-    credit: { implemented: false as const },
+    // Этап 9: полный конвейер зачёта (ТЗ п.32 — "Допуск → Тест →
+    // Квалификационные баллы → Устная часть/освобождение → Итог").
+    credit: {
+      implemented: true as const,
+      overallStatus: creditSummary.overallStatus,
+      overallStatusLabel: creditSummary.overallStatusLabel,
+      dictionary: { status: creditSummary.dictionary.status, statusLabel: creditSummary.dictionary.statusLabel, wordCount: creditSummary.dictionary.latest?.wordCount ?? null },
+      test: {
+        status: creditSummary.test.status,
+        attemptsUsed: creditSummary.test.attemptsUsed,
+        maxAttempts: creditSummary.test.maxAttempts,
+        result: creditSummary.test.latestAttempt?.status === "COMPLETED" ? { correctCount: creditSummary.test.latestAttempt.correctCount, totalCount: creditSummary.test.latestAttempt.totalCount } : null,
+      },
+      qualificationPoints: creditSummary.qualification,
+      oral: {
+        status: creditSummary.oral.status,
+        topic: oralTopic,
+        preliminaryGrade: creditSummary.oral.preliminaryGrade,
+        finalGrade: creditSummary.oral.assessment?.status === "CONFIRMED" ? creditSummary.oral.assessment.finalGrade : null,
+        exemptionReason: creditSummary.oral.assessment?.status === "EXEMPTED" ? creditSummary.oral.assessment.exemptionReason : null,
+      },
+    },
     progress: {
       status: "NOT_CONDUCTED" as const,
       recommendedAfterMonths: [5, 6] as const,

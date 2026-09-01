@@ -207,11 +207,17 @@ async function main() {
   const dashboardAfterF = await request(`/api/teacher/groups/${groupA.id}/dashboard`, { jar: teacherA.teacherJar });
   const fRow = dashboardAfterF.body.students.find((s: any) => s.studentId === studentFId);
   check("У студента F — 5 квалификационных баллов", fRow?.qualificationPoints === 5, fRow);
-  check("Статус устной части — EXEMPTED (освобождён)", fRow?.creditStatus === "EXEMPTED", fRow);
+  // Этап 9: creditStatus в строке — теперь полный "Итог" зачёта, а не
+  // только статус устной части. Студент F не подавал допуск по словарю
+  // в этом тесте (модуль допуска — Этап 9, не Этап 8) — по буквальному
+  // ТЗ п.28 (dictionary_status != confirmed → Не допущен) проверяется
+  // ПЕРВЫМ, раньше квалификационных баллов, поэтому даже 5 баллов не
+  // делают "Итог" завершённым без допуска.
+  check('creditStatus (полный "Итог") = NOT_ADMITTED — 5 баллов одних недостаточно без допуска (ТЗ п.28)', fRow?.creditStatus === "NOT_ADMITTED", fRow);
 
   const profileF = await request(`/api/teacher/groups/${groupA.id}/students/${studentFId}`, { jar: teacherA.teacherJar });
   check("Профиль студента: 5/5 баллов", profileF.body?.kpi?.qualificationPoints?.points === 5, profileF.body?.kpi?.qualificationPoints);
-  check("Профиль студента: header — «Устная часть: освобождён»", profileF.body?.header?.creditStatusLabel === "Устная часть: освобождён", profileF.body?.header);
+  check("Профиль студента: header — «Не допущен» (полный «Итог», Этап 9)", profileF.body?.header?.creditStatusLabel === "Не допущен", profileF.body?.header);
   check("pointsUntilExemption = 0 при 5+ баллах", profileF.body?.kpi?.qualificationPoints?.pointsUntilExemption === 0, profileF.body?.kpi?.qualificationPoints);
 
   // === Портфолио vs квалификационные баллы (ТЗ п.20) ========================

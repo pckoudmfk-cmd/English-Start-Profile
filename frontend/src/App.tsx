@@ -24,6 +24,14 @@ import { AchievementFormPage } from "./pages/student/achievements/AchievementFor
 import { AchievementDetailPage } from "./pages/student/achievements/AchievementDetailPage";
 import { TeacherAchievementsReviewPage } from "./pages/teacher/achievements/TeacherAchievementsReviewPage";
 import { TeacherAchievementDetailPage } from "./pages/teacher/achievements/TeacherAchievementDetailPage";
+import { CreditHubPage } from "./pages/student/credit/CreditHubPage";
+import { StudentCreditPage } from "./pages/student/credit/StudentCreditPage";
+import { CreditTestWizardPage } from "./pages/student/credit/CreditTestWizardPage";
+import { TeacherCreditDashboardPage } from "./pages/teacher/credit/TeacherCreditDashboardPage";
+import { TeacherCreditDictionaryPage } from "./pages/teacher/credit/TeacherCreditDictionaryPage";
+import { TeacherCreditDictionaryDetailPage } from "./pages/teacher/credit/TeacherCreditDictionaryDetailPage";
+import { TeacherCreditTestBankPage } from "./pages/teacher/credit/TeacherCreditTestBankPage";
+import { TeacherCreditStudentDetailPage } from "./pages/teacher/credit/TeacherCreditStudentDetailPage";
 import { InDevelopment } from "./components/InDevelopment";
 
 export default function App() {
@@ -49,7 +57,11 @@ export default function App() {
             <Route path="diagnostics" element={<InDevelopment title="Диагностика" />} />
             <Route path="achievements" element={<TeacherAchievementsReviewPage />} />
             <Route path="achievements/:id" element={<TeacherAchievementDetailPage />} />
-            <Route path="credit" element={<InDevelopment title="Зачёт" />} />
+            <Route path="credit" element={<TeacherCreditDashboardPage />} />
+            <Route path="credit/dictionary" element={<TeacherCreditDictionaryPage />} />
+            <Route path="credit/dictionary/:id" element={<TeacherCreditDictionaryDetailPage />} />
+            <Route path="credit/test-bank" element={<TeacherCreditTestBankPage />} />
+            <Route path="credit/groups/:groupId/students/:studentId" element={<TeacherCreditStudentDetailPage />} />
             <Route path="analytics" element={<InDevelopment title="Аналитика" />} />
             <Route path="settings" element={<InDevelopment title="Настройки" />} />
           </Route>
@@ -67,7 +79,9 @@ export default function App() {
             <Route path="achievements/new" element={<AchievementFormPage />} />
             <Route path="achievements/:id/edit" element={<AchievementFormPage />} />
             <Route path="achievements/:id" element={<AchievementDetailPage />} />
-            <Route path="credit" element={<InDevelopment title="Мой зачёт" />} />
+            <Route path="credit" element={<CreditHubPage />} />
+            <Route path="credit/:groupId" element={<StudentCreditPage />} />
+            <Route path="credit/:groupId/test/:attemptId" element={<CreditTestWizardPage />} />
             <Route path="progress" element={<InDevelopment title="Мой прогресс" />} />
           </Route>
         </Route>

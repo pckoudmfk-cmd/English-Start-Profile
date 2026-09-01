@@ -156,7 +156,7 @@ export function TeacherStudentProfilePage() {
         {activeTab === "questionnaire" && <QuestionnaireTab data={questionnaire} loading={questionnaireLoading} />}
         {activeTab === "goals" && <GoalsTab overview={overview} onStatusChange={handleGoalStatusChange} />}
         {activeTab === "achievements" && <AchievementsTab achievements={overview.achievements} />}
-        {activeTab === "credit" && <CreditTab qualificationPoints={overview.kpi.qualificationPoints} />}
+        {activeTab === "credit" && groupId && studentId && <CreditTab credit={overview.credit} groupId={groupId} studentId={studentId} />}
         {activeTab === "progress" && <ProgressTab progress={overview.progress} />}
         {activeTab === "notes" && groupId && studentId && (
           <NotesTab notes={overview.notes} groupId={groupId} studentId={studentId} onAdded={handleNoteAdded} />
@@ -709,22 +709,50 @@ function AchievementsTab({ achievements }: { achievements: OverviewResponse["ach
   );
 }
 
-function CreditTab({ qualificationPoints }: { qualificationPoints: OverviewResponse["kpi"]["qualificationPoints"] }) {
+// Этап 9: полный конвейер зачёта студента (ТЗ п.32 — "Допуск → Тест →
+// Квалификационные баллы → Устная часть/освобождение → Итог"). Ссылка
+// на полноценную страницу "Зачёт студента" ведёт туда, где преподаватель
+// может назначить тему устной части и выставить оценку — здесь только
+// обзор, без формы решений (та же логика разделения, что и у вкладки
+// "Достижения", которая тоже только показывает и ссылается на карточку).
+function CreditTab({ credit, groupId, studentId }: { credit: OverviewResponse["credit"]; groupId: string; studentId: string }) {
   return (
     <Card>
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">Мой зачёт</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-700">Зачёт</h3>
+        <Link to={`/teacher/credit/groups/${groupId}/students/${studentId}`} className="text-xs font-medium text-brand-600 hover:underline">
+          Открыть карточку зачёта →
+        </Link>
+      </div>
+      <div className="mb-3 text-base font-semibold text-slate-900">{credit.overallStatusLabel}</div>
       <ul className="space-y-2 text-sm">
-        <li className="text-slate-500">Допуск (активный словарь) — не реализовано</li>
-        <li className="text-slate-500">Лексико-грамматический тест — не реализовано</li>
         <li>
-          Квалификационные баллы — <span className="font-medium">{qualificationPoints.points} / 5</span>
+          Допуск (словарь) — <span className="font-medium">{credit.dictionary.statusLabel}</span>
+          {credit.dictionary.wordCount !== null && <span className="text-slate-500"> ({credit.dictionary.wordCount} слов)</span>}
+        </li>
+        <li>
+          Лексико-грамматический тест —{" "}
+          <span className="font-medium">{credit.test.status === "COMPLETED" ? "Выполнен" : credit.test.status === "IN_PROGRESS" ? "В процессе" : "Не начат"}</span>
+          {credit.test.result && <span className="text-slate-500"> ({credit.test.result.correctCount} / {credit.test.result.totalCount})</span>}
+        </li>
+        <li>
+          Квалификационные баллы — <span className="font-medium">{credit.qualificationPoints.points} / 5</span>
         </li>
         <li>
           Устная часть —{" "}
-          <span className="font-medium">{qualificationPoints.oralPartStatus === "EXEMPTED" ? "Освобождён" : "Обязательна"}</span>
+          <span className="font-medium">
+            {credit.oral.status === "EXEMPTED"
+              ? "Освобождён"
+              : credit.oral.status === "CONFIRMED"
+                ? `Оценка: ${credit.oral.finalGrade ?? ""}`
+                : credit.oral.status === "GRADED_DRAFT"
+                  ? "Черновик оценки"
+                  : credit.oral.status === "ASSIGNED"
+                    ? `Тема назначена (${credit.oral.topic?.en ?? ""})`
+                    : "Тема не назначена"}
+          </span>
         </li>
       </ul>
-      <p className="mt-3 text-xs text-slate-400">Допуск по словарю и лексико-грамматический тест появятся на одном из следующих этапов.</p>
     </Card>
   );
 }
