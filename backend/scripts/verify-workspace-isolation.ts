@@ -17,74 +17,18 @@
  *
  * Запуск: npm run verify:workspace (backend должен быть запущен).
  */
+import { type CookieJar, createChecker, registerUser, request } from "./lib/testClient";
 
-const BASE_URL = process.env.API_URL || "http://localhost:4000";
-
-type CookieJar = { cookie?: string };
-
-function extractCookie(setCookieHeader: string | null): string | undefined {
-  if (!setCookieHeader) return undefined;
-  return setCookieHeader.split(";")[0];
-}
-
-async function request(path: string, opts: { method?: string; body?: unknown; jar?: CookieJar } = {}) {
-  const { method = "GET", body, jar } = opts;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (jar?.cookie) headers.Cookie = jar.cookie;
-
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  if (jar) {
-    const c = extractCookie(res.headers.get("set-cookie"));
-    if (c) jar.cookie = c;
-  }
-
-  let json: any = null;
-  try {
-    json = await res.json();
-  } catch {
-    // no body
-  }
-  return { status: res.status, body: json };
-}
-
-let passCount = 0;
-let failCount = 0;
-
-function check(label: string, condition: boolean, details?: unknown) {
-  if (condition) {
-    passCount++;
-    console.log(`  ✅ ${label}`);
-  } else {
-    failCount++;
-    console.log(`  ❌ ${label}`);
-    if (details !== undefined) console.log("     ", JSON.stringify(details));
-  }
-}
-
-async function registerTeacher(email: string, password: string) {
-  const jar: CookieJar = {};
-  const res = await request("/api/auth/register", {
-    method: "POST",
-    body: { email, password, role: "TEACHER" },
-    jar,
-  });
-  if (res.status !== 201) {
-    throw new Error(`Не удалось зарегистрировать ${email}: ${res.status} ${JSON.stringify(res.body)}`);
-  }
-  return jar;
-}
+const { check, summarize } = createChecker();
 
 async function main() {
   const stamp = Date.now();
-  console.log(`\nПроверка изоляции Teacher Workspace (${BASE_URL})\n`);
+  console.log(`\nПроверка изоляции Teacher Workspace\n`);
 
-  const teacherA = await registerTeacher(`teacher-a-ws-${stamp}@example.com`, "Password123!");
-  const teacherB = await registerTeacher(`teacher-b-ws-${stamp}@example.com`, "Password123!");
+  const teacherA: CookieJar = {};
+  const teacherB: CookieJar = {};
+  await registerUser(teacherA, `teacher-a-ws-${stamp}@example.com`, "Password123!", "TEACHER");
+  await registerUser(teacherB, `teacher-b-ws-${stamp}@example.com`, "Password123!", "TEACHER");
 
   console.log("Teacher A: создаём учебный год, курс, группу...");
   const yearA = await request("/api/teacher/academic-years", { method: "POST", jar: teacherA, body: { name: "2026–2027 A" } });
@@ -221,8 +165,7 @@ async function main() {
   const noAuth = await request("/api/teacher/groups");
   check("Без токена /api/teacher/groups недоступен (401)", noAuth.status === 401, noAuth);
 
-  console.log(`\nИтог: ${passCount} пройдено, ${failCount} провалено.\n`);
-  if (failCount > 0) process.exitCode = 1;
+  summarize();
 }
 
 main().catch((err) => {

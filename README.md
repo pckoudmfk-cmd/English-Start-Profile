@@ -5,8 +5,9 @@
 Полная спецификация продукта — [`docs/SPEC.md`](docs/SPEC.md).
 
 Разработка ведётся поэтапно. Отчёты по этапам —
-[`docs/STAGE_1_REPORT.md`](docs/STAGE_1_REPORT.md) и
-[`docs/STAGE_2_REPORT.md`](docs/STAGE_2_REPORT.md).
+[`docs/STAGE_1_REPORT.md`](docs/STAGE_1_REPORT.md),
+[`docs/STAGE_2_REPORT.md`](docs/STAGE_2_REPORT.md) и
+[`docs/STAGE_3_REPORT.md`](docs/STAGE_3_REPORT.md).
 
 ## Реализовано
 
@@ -28,8 +29,16 @@
 - изоляция данных между преподавателями на уровне backend (404 на
   прямой доступ по id к чужой сущности).
 
-Student Onboarding (присоединение студента по коду) — следующий этап,
-пока не реализован.
+**Этап 3 — подключение студента к группе:**
+
+- присоединение по коду: превью группы (название, курс, учебный год,
+  преподаватель) перед подтверждением;
+- понятные раздельные ошибки — код не найден, отключён, просрочен;
+- повторное подключение не создаёт дубликат membership;
+- статус «Стартовая диагностика: не пройдена» на карточке группы
+  студента.
+
+Progress Check и Credit Test — не реализованы, следующие этапы.
 
 ## Технологический стек
 
@@ -95,6 +104,19 @@ npm run verify:workspace
 группу → join-код, и проверяет, что чужие сущности не видны в списках
 и недоступны по id напрямую (см.
 [`backend/scripts/verify-workspace-isolation.ts`](backend/scripts/verify-workspace-isolation.ts)).
+
+### Проверка Student Onboarding (Этап 3)
+
+```bash
+cd backend
+npm run verify:onboarding
+```
+
+Создаёт преподавателя с группой и двух студентов; проверяет превью и
+подтверждение по коду, все три вида ошибок кода (не найден / отключён /
+просрочен), защиту от дублирования membership при повторном
+подключении и изоляцию списка групп между студентами (см.
+[`backend/scripts/verify-student-onboarding.ts`](backend/scripts/verify-student-onboarding.ts)).
 
 ## Переменные окружения
 

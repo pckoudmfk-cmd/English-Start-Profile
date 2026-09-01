@@ -33,3 +33,13 @@ export async function generateUniqueJoinCode(): Promise<string> {
   }
   throw new Error("Не удалось сгенерировать уникальный join-код за разумное число попыток.");
 }
+
+/**
+ * Приводит введённый студентом код к каноническому виду перед поиском в
+ * БД: обрезает пробелы по краям и приводит к верхнему регистру (алфавит
+ * кода — заглавные буквы и цифры, но студент вполне может напечатать его
+ * строчными).
+ */
+export function normalizeJoinCode(raw: string): string {
+  return raw.trim().toUpperCase();
+}

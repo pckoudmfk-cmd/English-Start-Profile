@@ -125,11 +125,19 @@ router.post("/:id/archive", async (req, res) => {
   if (!existing) {
     return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Группа не найдена." });
   }
-  const group = await prisma.group.update({
-    where: { id: existing.id },
-    data: { status: "ARCHIVED" },
-    include: groupInclude,
-  });
+
+  // Архивная группа не должна быть доступна для присоединения по коду
+  // (см. открытый вопрос Этапа 2) — деактивируем активный код в той же
+  // транзакции, что и перевод группы в архив.
+  await prisma.$transaction([
+    prisma.group.update({ where: { id: existing.id }, data: { status: "ARCHIVED" } }),
+    prisma.groupJoinCode.updateMany({
+      where: { groupId: existing.id, active: true },
+      data: { active: false, revokedAt: new Date() },
+    }),
+  ]);
+
+  const group = await prisma.group.findUnique({ where: { id: existing.id }, include: groupInclude });
   return res.json(serializeGroup(group));
 });
 
@@ -152,6 +160,12 @@ router.post("/:id/join-code/regenerate", async (req, res) => {
   const existing = await prisma.group.findFirst({ where: { id: req.params.id, teacherId: req.user!.id } });
   if (!existing) {
     return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Группа не найдена." });
+  }
+  if (existing.status === "ARCHIVED") {
+    return res.status(409).json({
+      error: "GROUP_ARCHIVED",
+      message: "Группа в архиве. Сначала восстановите её из архива, чтобы управлять кодом подключения.",
+    });
   }
 
   const code = await generateUniqueJoinCode();

@@ -8,6 +8,7 @@ import studentRouter from "./routes/student";
 import academicYearsRouter from "./routes/academicYears";
 import coursesRouter from "./routes/courses";
 import groupsRouter from "./routes/groups";
+import studentGroupsRouter from "./routes/studentGroups";
 
 const app = express();
 
@@ -35,6 +36,10 @@ app.use("/api/teacher/academic-years", academicYearsRouter);
 app.use("/api/teacher/courses", coursesRouter);
 app.use("/api/teacher/groups", groupsRouter);
 app.use("/api/teacher", teacherRouter);
+// Аналогично /api/teacher/* выше: /api/student/groups регистрируется до
+// общего studentRouter (у которого есть перехватывающий router.use на
+// "/profile"), чтобы не проходить через его middleware вхолостую.
+app.use("/api/student/groups", studentGroupsRouter);
 app.use("/api/student", studentRouter);
 
 // Единый обработчик 404 для несуществующих API-маршрутов.

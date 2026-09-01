@@ -34,6 +34,8 @@ model User {
   courses       Course[]
   groups        Group[]
 
+  groupMemberships GroupMembership[]
+
   @@index([role])
 }
 
@@ -78,9 +80,7 @@ model StudentProfile {
 // владение одним прямым условием в WHERE, без обхода цепочки JOIN'ов,
 // где легко забыть проверку на промежуточном шаге.
 //
-// Членство студентов в группе (GroupMembership) сюда намеренно НЕ
-// входит — это часть Student Onboarding (следующий этап) и в этом
-// этапе не реализуется.
+// Членство студентов (GroupMembership) добавлено на Этапе 3.
 // ---------------------------------------------------------------------
 
 model AcademicYear {
@@ -126,7 +126,8 @@ model Group {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  joinCodes GroupJoinCode[]
+  joinCodes   GroupJoinCode[]
+  memberships GroupMembership[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -142,8 +143,43 @@ model GroupJoinCode {
   group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   code      String    @unique
   active    Boolean   @default(true)
+  // Необязательный срок действия. На Этапе 2 преподаватель не может его
+  // задать через интерфейс (всегда null = бессрочно) — колонка добавлена
+  // на Этапе 3, чтобы код с истёкшим сроком действительно можно было
+  // распознать и показать студенту сообщение "Срок действия истёк", а не
+  // выдумывать этот сценарий. Управление сроком из UI — задача одного из
+  // следующих этапов (Settings/Credit Settings).
+  expiresAt DateTime?
   createdAt DateTime  @default(now())
   revokedAt DateTime?
 
+  @@index([groupId])
+}
+
+// Этап 3: членство студента в группе, созданное присоединением по коду.
+//
+// (studentId, groupId) уникальны — один студент не может состоять в одной
+// и той же группе дважды; это и есть защита от дубликата membership,
+// требуемая ТЗ. status оставлен на будущее (удаление студента из группы
+// преподавателем — soft-delete, ещё не реализовано): сейчас всегда ACTIVE,
+// но поле уже здесь, чтобы при появлении этой функции не пришлось менять
+// смысл существующих строк задним числом.
+model GroupMembership {
+  id        String   @id @default(uuid())
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  status    String   @default("ACTIVE") // ACTIVE | REMOVED
+  // Код, которым студент воспользовался при присоединении — снимок на
+  // момент подключения. Не ссылка на GroupJoinCode: тот код мог быть
+  // потом регенерирован или деактивирован, а исторический факт "как
+  // студент попал в группу" должен остаться читаемым.
+  joinedViaCode String
+  joinedAt      DateTime  @default(now())
+  removedAt     DateTime?
+
+  @@unique([studentId, groupId])
+  @@index([studentId])
   @@index([groupId])
 }
