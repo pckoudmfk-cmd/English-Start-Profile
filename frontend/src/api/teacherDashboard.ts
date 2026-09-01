@@ -71,43 +71,6 @@ export interface DashboardResponse {
   students: DashboardStudentRow[];
 }
 
-export interface TeacherStudentProfile {
-  student: {
-    id: string;
-    fullName: string;
-    email: string;
-    specialty: string | null;
-    course: string | null;
-    academicYear: string | null;
-  };
-  questionnaire: {
-    status: AttemptStatus;
-    completedAt: string | null;
-    answers: { question: string; answer: string }[];
-  } | null;
-  diagnostic: {
-    status: AttemptStatus;
-    completedAt: string | null;
-    overallPercentage: number | null;
-    skillBreakdown: { skill: string; correct: number; total: number; percentage: number }[] | null;
-    diagnosticRange: string | null;
-  } | null;
-  metrics: {
-    selfAssessment: number | null;
-    motivation: number | null;
-    autonomy: number | null;
-    gapCategory: GapCategory | null;
-  };
-  notes: { id: string; text: string; createdAt: string }[];
-}
-
 export const teacherDashboardApi = {
   getDashboard: (groupId: string) => api.get<DashboardResponse>(`/api/teacher/groups/${groupId}/dashboard`),
-  getStudentProfile: (groupId: string, studentId: string) =>
-    api.get<TeacherStudentProfile>(`/api/teacher/groups/${groupId}/students/${studentId}`),
-  addNote: (groupId: string, studentId: string, text: string) =>
-    api.post<{ id: string; text: string; createdAt: string }>(
-      `/api/teacher/groups/${groupId}/students/${studentId}/notes`,
-      { text }
-    ),
 };

@@ -9,6 +9,7 @@ import academicYearsRouter from "./routes/academicYears";
 import coursesRouter from "./routes/courses";
 import groupsRouter from "./routes/groups";
 import teacherDashboardRouter from "./routes/teacherDashboard";
+import teacherStudentProfileRouter from "./routes/teacherStudentProfile";
 import studentGroupsRouter from "./routes/studentGroups";
 import studentQuestionnaireRouter from "./routes/studentQuestionnaire";
 import studentDiagnosticRouter from "./routes/studentDiagnostic";
@@ -38,12 +39,14 @@ app.use("/api/auth", authRouter);
 app.use("/api/teacher/academic-years", academicYearsRouter);
 app.use("/api/teacher/courses", coursesRouter);
 app.use("/api/teacher/groups", groupsRouter);
-// Этап 6: Dashboard/профиль студента/заметки — отдельный роутер на том
-// же префиксе /api/teacher/groups, что и groupsRouter выше (его пути —
-// "/:id/dashboard", "/:id/students/:studentId(/notes)" — не пересекаются
-// с путями groupsRouter, поэтому порядок между ними друг для друга не
-// важен; важно лишь то, что оба смонтированы ДО общего teacherRouter).
+// Этап 6/7: Dashboard группы и профиль студента (Обзор/Анкета/
+// Диагностика/Цели/Заметки) — два отдельных роутера на том же префиксе
+// /api/teacher/groups, что и groupsRouter выше. Пути не пересекаются
+// друг с другом ("/:id/dashboard" vs "/:id/students/..."), поэтому
+// порядок между этими тремя роутерами друг для друга не важен; важно
+// лишь то, что все они смонтированы ДО общего teacherRouter.
 app.use("/api/teacher/groups", teacherDashboardRouter);
+app.use("/api/teacher/groups", teacherStudentProfileRouter);
 app.use("/api/teacher", teacherRouter);
 // Аналогично /api/teacher/* выше: /api/student/groups регистрируется до
 // общего studentRouter (у которого есть перехватывающий router.use на

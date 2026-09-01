@@ -15,7 +15,8 @@
     "verify:onboarding": "tsx scripts/verify-student-onboarding.ts",
     "verify:questionnaire": "tsx scripts/verify-questionnaire.ts",
     "verify:diagnostic": "tsx scripts/verify-diagnostic.ts",
-    "verify:dashboard": "tsx scripts/verify-dashboard.ts"
+    "verify:dashboard": "tsx scripts/verify-dashboard.ts",
+    "verify:student-profile": "tsx scripts/verify-student-profile.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

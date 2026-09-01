@@ -39,6 +39,8 @@ model User {
   diagnosticAttempts    DiagnosticAttempt[]
   teacherNotesAuthored  TeacherNote[] @relation("TeacherNoteAuthor")
   teacherNotesAboutMe   TeacherNote[] @relation("TeacherNoteStudent")
+  goalStatusesAuthored  StudentGoalStatus[] @relation("GoalStatusAuthor")
+  goalStatusesAboutMe   StudentGoalStatus[] @relation("GoalStatusStudent")
 
   @@index([role])
 }
@@ -135,6 +137,7 @@ model Group {
   questionnaireAttempts QuestionnaireAttempt[]
   diagnosticAttempts    DiagnosticAttempt[]
   teacherNotes          TeacherNote[]
+  goalStatuses          StudentGoalStatus[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -373,8 +376,58 @@ model TeacherNote {
   studentId String
   student   User     @relation("TeacherNoteStudent", fields: [studentId], references: [id], onDelete: Cascade)
   text      String
+  // Этап 7: тип заметки (OBSERVATION|RECOMMENDATION|AGREEMENT|IMPORTANT|
+  // EVENT_PREP) — nullable, чтобы не переписывать задним числом заметки,
+  // созданные на Этапе 6 до появления этого поля (у них тип неизвестен,
+  // а не "наблюдение по умолчанию" — честнее оставить null).
+  noteType  String?
   createdAt DateTime @default(now())
 
   @@index([teacherId])
   @@index([groupId, studentId])
+}
+
+// ---------------------------------------------------------------------
+// Этап 7: ПОЛНЫЙ ПРОФИЛЬ СТУДЕНТА — статусы целей (вкладка «Цели»).
+//
+// Цели студента как ТЕКСТ приходят из анкеты (Q37 — до 3 выбранных
+// формулировок из фиксированного списка вариантов) и не редактируются
+// задним числом (исторический ответ анкеты неизменяем — см. Этап 4).
+// А вот СТАТУС достижения каждой цели — это не факт анкетирования, а
+// текущая педагогическая оценка, которую явно меняет преподаватель
+// (ТЗ Этапа 7, п.14: "не отмечать автоматически цель как выполненную").
+// Поэтому статус хранится отдельно от QuestionnaireAnswer, ключом
+// (groupId, studentId, goalCode), где goalCode — тот же machine-key
+// варианта Q37, что и в анкете.
+model StudentGoalStatus {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation("GoalStatusAuthor", fields: [teacherId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation("GoalStatusStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  goalCode  String // machine-key варианта Q37 (например "speak_confidently")
+  status    String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | DONE | NOT_ACHIEVED
+  updatedAt DateTime @updatedAt
+
+  @@unique([groupId, studentId, goalCode])
+  @@index([groupId, studentId])
+}
+
+// Приложение-only журнал изменений статуса цели (ТЗ п.21: "для важных
+// действий сохранять кто/когда/что изменилось"). Append-only — строки
+// никогда не обновляются и не удаляются, только добавляются при каждом
+// PUT статуса.
+model StudentGoalStatusEvent {
+  id         String   @id @default(uuid())
+  teacherId  String
+  groupId    String
+  studentId  String
+  goalCode   String
+  fromStatus String
+  toStatus   String
+  createdAt  DateTime @default(now())
+
+  @@index([groupId, studentId, goalCode])
 }

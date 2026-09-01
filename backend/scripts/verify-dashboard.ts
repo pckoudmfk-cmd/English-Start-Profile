@@ -363,16 +363,31 @@ async function main() {
     null
   );
 
-  console.log("\nПрофиль студента (teacher-facing) — человекочитаемо, без кодов вопросов");
+  console.log("\nПрофиль студента (teacher-facing) — Обзор лёгкий, полные данные по вкладкам (Этап 7)");
   const comboProfile = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}`, { jar: teacherA.teacherJar });
-  check("Профиль студента — 200", comboProfile.status === 200, comboProfile);
-  check("Анкета отдаёт человекочитаемые вопросы/ответы (не пусто)", (comboProfile.body?.questionnaire?.answers?.length ?? 0) > 0, comboProfile.body?.questionnaire?.answers?.length);
-  const profileText = JSON.stringify(comboProfile.body?.questionnaire?.answers ?? []);
+  check("Профиль студента (Обзор) — 200", comboProfile.status === 200, comboProfile);
+  // Полные ответы анкеты и полная история диагностики — теперь на
+  // отдельных вкладочных маршрутах (Этап 7, п.24 про производительность),
+  // не в самом Обзоре.
+  const comboQuestionnaire = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/questionnaire`, { jar: teacherA.teacherJar });
+  check("Вкладка «Анкета» — 200", comboQuestionnaire.status === 200, comboQuestionnaire);
+  const answerCount = comboQuestionnaire.body?.sections?.reduce((sum: number, s: any) => sum + s.items.length, 0) ?? 0;
+  check("Анкета отдаёт человекочитаемые вопросы/ответы (не пусто)", answerCount > 0, answerCount);
+  const profileText = JSON.stringify(comboQuestionnaire.body?.sections ?? []);
   check("В ответах анкеты нет технических кодов вопросов (Q15, Q16 и т.п.)", !/"Q\d+"/.test(profileText), profileText.slice(0, 200));
+
+  const comboDiagnostic = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/diagnostic`, { jar: teacherA.teacherJar });
+  check("Вкладка «Диагностика» — 200", comboDiagnostic.status === 200, comboDiagnostic);
+  const startEntry = comboDiagnostic.body?.history?.find((h: any) => h.kind === "START");
   check(
     "diagnosticRange остаётся null (нет утверждённой матрицы порогов)",
-    comboProfile.body?.diagnostic?.diagnosticRange === null,
-    comboProfile.body?.diagnostic?.diagnosticRange
+    startEntry?.diagnosticRange === null,
+    startEntry?.diagnosticRange
+  );
+  check(
+    "Письмо/Говорение в таблице навыков помечены как не оценивавшиеся (assessed:false), не 0%",
+    comboDiagnostic.body?.skillTable?.find((s: any) => s.skill === "WRITING")?.assessed === false,
+    comboDiagnostic.body?.skillTable
   );
 
   console.log("\nЗаметки преподавателя — создание и видимость только автору");
@@ -387,7 +402,13 @@ async function main() {
   const dashCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/dashboard`, { jar: teacherB.teacherJar });
   check("Чужая группа — Dashboard 404", dashCrossTeacher.status === 404, dashCrossTeacher);
   const profileCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}`, { jar: teacherB.teacherJar });
-  check("Чужая группа — профиль студента 404", profileCrossTeacher.status === 404, profileCrossTeacher);
+  check("Чужая группа — профиль студента (Обзор) 404", profileCrossTeacher.status === 404, profileCrossTeacher);
+  const questionnaireCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/questionnaire`, { jar: teacherB.teacherJar });
+  check("Чужая группа — вкладка «Анкета» 404", questionnaireCrossTeacher.status === 404, questionnaireCrossTeacher);
+  const diagnosticCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/diagnostic`, { jar: teacherB.teacherJar });
+  check("Чужая группа — вкладка «Диагностика» 404", diagnosticCrossTeacher.status === 404, diagnosticCrossTeacher);
+  const goalCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/goals/speak_confidently`, { method: "PUT", jar: teacherB.teacherJar, body: { status: "DONE" } });
+  check("Чужая группа — изменение статуса цели 404", goalCrossTeacher.status === 404, goalCrossTeacher);
   const noteCrossTeacher = await request(`/api/teacher/groups/${groupA.id}/students/${comboRow.studentId}/notes`, { method: "POST", jar: teacherB.teacherJar, body: { text: "чужая заметка" } });
   check("Чужая группа — создание заметки 404", noteCrossTeacher.status === 404, noteCrossTeacher);
   const crossTeacherNoteInDb = await prisma.teacherNote.findFirst({ where: { text: "чужая заметка" } });
