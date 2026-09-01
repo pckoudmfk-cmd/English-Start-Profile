@@ -175,7 +175,13 @@ async function main() {
   check("selfAssessment = 3,6 (среднее 5,2,5,3,3)", overview.body?.kpi?.selfAssessment === 3.6, overview.body?.kpi?.selfAssessment);
   check("motivation = 5", overview.body?.kpi?.motivation === 5, overview.body?.kpi?.motivation);
   check("autonomy = 5", overview.body?.kpi?.autonomy === 5, overview.body?.kpi?.autonomy);
-  check("Квалификационные баллы честно implemented:false", overview.body?.kpi?.qualificationPoints?.implemented === false, overview.body?.kpi?.qualificationPoints);
+  check(
+    // Этап 8: модуль достижений реализован — баллы теперь реальные (0,
+    // этот студент ничего не подтверждал в этом тесте), а не заглушка.
+    "Квалификационные баллы — implemented:true, реальные данные (Этап 8)",
+    overview.body?.kpi?.qualificationPoints?.implemented === true && overview.body?.kpi?.qualificationPoints?.points === 0,
+    overview.body?.kpi?.qualificationPoints
+  );
 
   console.log("\n«Обзор»: сильные/слабые стороны, потенциал, рекомендации");
   const strengths: string[] = overview.body?.overview?.strengths ?? [];

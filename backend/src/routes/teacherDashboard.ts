@@ -24,6 +24,7 @@ import {
 } from "../analytics/scoring";
 import { buildAttentionEntry, buildOpportunityEntry, type StudentMetrics } from "../analytics/insights";
 import { average, buildMetricsForRoster, findOwnedGroupHeader, loadRoster } from "../analytics/teacherAccess";
+import { computeOralPartStatus, getGroupAchievementsSummary, getGroupQualificationPointsByStudent } from "../analytics/qualification";
 
 const router = Router();
 
@@ -37,6 +38,10 @@ router.get("/:id/dashboard", async (req, res) => {
 
   const roster = await loadRoster(group.id);
   const metrics = await buildMetricsForRoster(group.id, roster);
+  const [achievementsSummary, pointsByStudent] = await Promise.all([
+    getGroupAchievementsSummary(group.id),
+    getGroupQualificationPointsByStudent(group.id, roster.map((r) => r.studentId)),
+  ]);
 
   const diagnosticCompleted = metrics.filter((m) => m.diagnosticStatus === "COMPLETED");
   const diagnosticPercentages = diagnosticCompleted.map((m) => m.diagnosticPercentage).filter((v): v is number => v !== null);
@@ -81,13 +86,15 @@ router.get("/:id/dashboard", async (req, res) => {
       autonomy: m.autonomy,
       developmentArea: computeDevelopmentArea(m.skillBreakdown),
       potentialLabel: opportunity?.potentialLabel ?? null,
-      // Квалификационные баллы и статус зачёта — модуль "Зачёт/Достижения"
-      // ещё не реализован ни в одном из предыдущих этапов, поэтому здесь
-      // не выдумывается число или статус: null означает "не реализовано",
-      // фронтенд обязан показать честную заглушку, а не нулевое значение
-      // как будто балл посчитан и равен нулю.
-      qualificationPoints: null as number | null,
-      creditStatus: null as string | null,
+      // Квалификационные баллы (Этап 8) — реальное число подтверждённых
+      // результативных достижений студента. creditStatus — только статус
+      // устной части зачёта (единственное, что однозначно вычислимо из
+      // баллов, см. analytics/qualification.ts); полный статус "готов к
+      // зачёту" требует ещё допуска по словарю и лексико-грамматического
+      // теста — этих модулей по-прежнему нет, поэтому здесь не
+      // подставляется общий "готов/не готов".
+      qualificationPoints: pointsByStudent.get(m.studentId) ?? 0,
+      creditStatus: computeOralPartStatus(pointsByStudent.get(m.studentId) ?? 0),
     };
   });
 
@@ -106,11 +113,21 @@ router.get("/:id/dashboard", async (req, res) => {
       avgDiagnosticPercentage: average(diagnosticPercentages),
       avgMotivation: average(motivations),
       avgAutonomy: average(autonomies),
-      // Квалификационные баллы и Зачёт — честные "не реализовано":
-      // модуля начислений и зачёта в приложении пока нет (см. README,
-      // раздел "Не реализовано"). implemented:false — явный сигнал для
-      // фронтенда показать заглушку, а не 0/32 как будто посчитано.
-      qualificationPoints: { implemented: false },
+      // Квалификационные баллы (Этап 8) — реальные данные из модуля
+      // достижений: сумма подтверждённых баллов в группе + сколько
+      // студентов уже набрали порог 5 (ТЗ Этапа 6, KPI-плитка 5, и
+      // Этапа 8 п.24).
+      qualificationPoints: {
+        implemented: true as const,
+        total: achievementsSummary.totalQualificationPoints,
+        studentsWithFivePlus: achievementsSummary.studentsWithFivePlus,
+      },
+      // "Готовы к зачёту" (KPI-плитка 6) по-прежнему честно не
+      // реализовано целиком: помимо квалификационных баллов для полной
+      // готовности нужны ещё допуск по активному словарю и
+      // лексико-грамматический тест — этих модулей нет ни на одном из
+      // этапов, подставлять только один готовый компонент как "готовность
+      // к зачёту" целиком было бы преувеличением.
       credit: { implemented: false },
     },
     attention,
@@ -124,9 +141,26 @@ router.get("/:id/dashboard", async (req, res) => {
       recommendedAfterMonths: [5, 6] as const,
     },
     credit: {
-      // Зачёт/Достижения — не реализованы (см. выше про qualificationPoints).
-      implemented: false,
+      // "Прогресс по зачёту" (детальный блок) — 2 из 4 подпунктов теперь
+      // реальны (Этап 8): квалификационные баллы и статус устной части
+      // (единственное, однозначно вычислимое из одних только баллов).
+      // Допуск по словарю и лексико-грамматический тест по-прежнему не
+      // реализованы — честно помечены отдельно, а не средним "не
+      // реализовано" на весь блок, чтобы не занижать то, что уже есть.
+      vocabulary: { implemented: false },
+      lexicoGrammarTest: { implemented: false },
+      qualificationPoints: {
+        implemented: true as const,
+        total: achievementsSummary.totalQualificationPoints,
+        studentsWithFivePlus: achievementsSummary.studentsWithFivePlus,
+      },
+      oralPart: {
+        implemented: true as const,
+        exemptedCount: roster.filter((r) => computeOralPartStatus(pointsByStudent.get(r.studentId) ?? 0) === "EXEMPTED").length,
+        requiredCount: roster.filter((r) => computeOralPartStatus(pointsByStudent.get(r.studentId) ?? 0) === "REQUIRED").length,
+      },
     },
+    achievementsPendingReview: achievementsSummary.pendingReviewCount,
     students: studentsTable,
   });
 });

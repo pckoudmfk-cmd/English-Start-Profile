@@ -261,11 +261,14 @@ async function main() {
     dashA.body?.kpi?.avgMotivation
   );
   check(
-    "Квалификационные баллы — честно implemented:false, а не выдуманный ноль",
-    dashA.body?.kpi?.qualificationPoints?.implemented === false,
+    // Этап 8: модуль достижений реализован — квалификационные баллы
+    // теперь реальные, а не заглушка (ни один из 5 студентов группы A
+    // здесь не подтверждён, поэтому total = 0, но implemented честно true).
+    "Квалификационные баллы — implemented:true, реальные данные модуля достижений (Этап 8)",
+    dashA.body?.kpi?.qualificationPoints?.implemented === true && dashA.body?.kpi?.qualificationPoints?.total === 0,
     dashA.body?.kpi?.qualificationPoints
   );
-  check("Зачёт — честно implemented:false", dashA.body?.kpi?.credit?.implemented === false, dashA.body?.kpi?.credit);
+  check("«Готовы к зачёту» (полная готовность) — по-прежнему честно implemented:false (нужны ещё допуск и тест)", dashA.body?.kpi?.credit?.implemented === false, dashA.body?.kpi?.credit);
 
   console.log("\n«Требуют внимания» — комбинация факторов, а не одиночный показатель");
   const attention = dashA.body?.attention ?? [];
@@ -325,8 +328,12 @@ async function main() {
   check("У «opportunity» в таблице diagnosticPercentage = 100", oppRow?.diagnosticPercentage === 100, oppRow);
   check("У «opportunity» потенциал совпадает с блоком «Возможности развития»", oppRow?.potentialLabel === "Конференционный потенциал", oppRow);
   check(
-    "Квалификационные баллы/статус зачёта в строках — честный null (модуль не реализован)",
-    students.every((s: any) => s.qualificationPoints === null && s.creditStatus === null),
+    // Этап 8: реальные числа (0 для всех — ни один из этих 5 студентов
+    // не подтверждён в этом тесте), не выдуманный null и не "модуль не
+    // реализован" — creditStatus теперь REQUIRED/EXEMPTED (статус устной
+    // части, единственное, что однозначно вычислимо из одних баллов).
+    "Квалификационные баллы/статус устной части в строках — реальные значения (Этап 8)",
+    students.every((s: any) => s.qualificationPoints === 0 && s.creditStatus === "REQUIRED"),
     students.map((s: any) => ({ qualificationPoints: s.qualificationPoints, creditStatus: s.creditStatus }))
   );
 
@@ -337,7 +344,17 @@ async function main() {
       JSON.stringify(dashA.body?.progress?.recommendedAfterMonths) === JSON.stringify([5, 6]),
     dashA.body?.progress
   );
-  check("credit.implemented = false (модуль зачёта не реализован)", dashA.body?.credit?.implemented === false, dashA.body?.credit);
+  check(
+    // Этап 8: 2 из 4 подпунктов теперь реальны (квалификационные баллы,
+    // статус устной части); допуск по словарю и лексико-грамматический
+    // тест по-прежнему честно не реализованы.
+    "«Прогресс по зачёту»: баллы и устная часть реальны, словарь/тест — честно не реализованы",
+    dashA.body?.credit?.qualificationPoints?.implemented === true &&
+      dashA.body?.credit?.oralPart?.implemented === true &&
+      dashA.body?.credit?.vocabulary?.implemented === false &&
+      dashA.body?.credit?.lexicoGrammarTest?.implemented === false,
+    dashA.body?.credit
+  );
 
   console.log("\nПустая группа — честное пустое состояние");
   const emptyGroupSetup = await request("/api/teacher/groups", { method: "POST", jar: teacherA.teacherJar, body: { name: `Пустая группа ${stamp}`, courseId: (await request(`/api/teacher/groups/${groupA.id}`, { jar: teacherA.teacherJar })).body.courseId } });

@@ -10,6 +10,7 @@ import {
   type QuestionnaireTabResponse,
 } from "../../api/teacherStudentProfile";
 import type { GapCategory } from "../../api/teacherDashboard";
+import { ACHIEVEMENT_STATUS_LABELS_RU, ACHIEVEMENT_STATUS_TONE, CLAIMED_RESULT_LABELS_RU } from "../../api/achievements";
 import { TeacherNoteForm, noteTypeLabel } from "../../components/TeacherNoteForm";
 import { Badge, Card, EmptyState, ErrorAlert, PrimaryButton, Select } from "../../components/ui";
 
@@ -154,8 +155,8 @@ export function TeacherStudentProfilePage() {
         {activeTab === "diagnostic" && <DiagnosticTab data={diagnostic} loading={diagnosticLoading} />}
         {activeTab === "questionnaire" && <QuestionnaireTab data={questionnaire} loading={questionnaireLoading} />}
         {activeTab === "goals" && <GoalsTab overview={overview} onStatusChange={handleGoalStatusChange} />}
-        {activeTab === "achievements" && <AchievementsTab />}
-        {activeTab === "credit" && <CreditTab />}
+        {activeTab === "achievements" && <AchievementsTab achievements={overview.achievements} />}
+        {activeTab === "credit" && <CreditTab qualificationPoints={overview.kpi.qualificationPoints} />}
         {activeTab === "progress" && <ProgressTab progress={overview.progress} />}
         {activeTab === "notes" && groupId && studentId && (
           <NotesTab notes={overview.notes} groupId={groupId} studentId={studentId} onAdded={handleNoteAdded} />
@@ -229,7 +230,15 @@ function KpiRow({ kpi }: { kpi: OverviewResponse["kpi"] }) {
         <KpiTile value={kpi.gapCategory ? GAP_LABELS[kpi.gapCategory] : "—"} caption="Разрыв" small />
         <KpiTile value={`${formatScale(kpi.motivation)} / 5`} caption="Мотивация" />
         <KpiTile value={`${formatScale(kpi.autonomy)} / 5`} caption="Самостоятельность" />
-        <KpiTile value="Не реализовано" muted caption="Квалиф. баллы" small />
+        <KpiTile
+          value={`${kpi.qualificationPoints.points} / 5`}
+          caption="Квалификационные баллы"
+          hint={
+            kpi.qualificationPoints.oralPartStatus === "EXEMPTED"
+              ? "Требование выполнено — освобождён от устной части"
+              : `До освобождения от устной части: ${kpi.qualificationPoints.pointsUntilExemption}`
+          }
+        />
         <KpiTile value="Не реализовано" muted caption="Статус зачёта" small />
       </div>
     </Card>
@@ -650,28 +659,72 @@ function GoalsTab({ overview, onStatusChange }: { overview: OverviewResponse; on
   );
 }
 
-// --- Достижения / Зачёт — модули не реализованы (ТЗ раздел «после
-// завершения не переходи к модулю достижений/зачёта») --------------------
+// --- Достижения (Этап 8) — портфолио и квалификационные баллы, разные
+// понятия (ТЗ п.20): портфолио включает ЛЮБОЕ подтверждённое
+// достижение (с баллом или без), результативные — только те, что дали
+// балл. Полная проверка/решения — на отдельной странице «Проверка
+// достижений» (переход по ссылке), не дублируется здесь. -----------------
 
-function AchievementsTab() {
+function AchievementsTab({ achievements }: { achievements: OverviewResponse["achievements"] }) {
   return (
-    <Card>
-      <EmptyState title="Модуль «Достижения» ещё не реализован." hint="Мероприятия, категории, подтверждения и квалификационные баллы появятся на одном из следующих этапов." />
-    </Card>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card>
+          <div className="text-2xl font-semibold text-slate-900">{achievements.portfolioCount}</div>
+          <div className="mt-1 text-xs text-slate-500">Достижения (портфолио)</div>
+        </Card>
+        <Card>
+          <div className="text-2xl font-semibold text-slate-900">{achievements.resultfulCount}</div>
+          <div className="mt-1 text-xs text-slate-500">Результативные достижения</div>
+        </Card>
+      </div>
+
+      <Card>
+        <h3 className="mb-3 text-sm font-semibold text-slate-700">Список достижений</h3>
+        {achievements.list.length === 0 ? (
+          <EmptyState title="Пока нет достижений." hint="Студент ещё не отправлял подтверждённые результаты внеаудиторной активности." />
+        ) : (
+          <ul className="space-y-2">
+            {achievements.list.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 p-3">
+                <div className="min-w-0 flex-1 break-words">
+                  <div className="text-sm font-medium text-slate-900">{a.eventName}</div>
+                  <div className="text-xs text-slate-500">
+                    {new Date(a.eventDate).toLocaleDateString("ru-RU")} · {CLAIMED_RESULT_LABELS_RU[a.claimedResult]}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge tone={ACHIEVEMENT_STATUS_TONE[a.status]}>{ACHIEVEMENT_STATUS_LABELS_RU[a.status]}</Badge>
+                  {a.qualificationPoint === 1 && <span className="text-xs font-medium text-brand-700">+1</span>}
+                  <Link to={`/teacher/achievements/${a.id}`} className="text-xs font-medium text-brand-600 hover:underline">
+                    Открыть
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }
 
-function CreditTab() {
+function CreditTab({ qualificationPoints }: { qualificationPoints: OverviewResponse["kpi"]["qualificationPoints"] }) {
   return (
     <Card>
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Мой зачёт</h3>
-      <ul className="space-y-2 text-sm text-slate-500">
-        <li>Допуск (активный словарь) — не реализовано</li>
-        <li>Лексико-грамматический тест — не реализовано</li>
-        <li>Устная часть — не реализовано</li>
-        <li>Квалификационные баллы — не реализовано</li>
+      <ul className="space-y-2 text-sm">
+        <li className="text-slate-500">Допуск (активный словарь) — не реализовано</li>
+        <li className="text-slate-500">Лексико-грамматический тест — не реализовано</li>
+        <li>
+          Квалификационные баллы — <span className="font-medium">{qualificationPoints.points} / 5</span>
+        </li>
+        <li>
+          Устная часть —{" "}
+          <span className="font-medium">{qualificationPoints.oralPartStatus === "EXEMPTED" ? "Освобождён" : "Обязательна"}</span>
+        </li>
       </ul>
-      <p className="mt-3 text-xs text-slate-400">Модуль «Зачёт» появится на одном из следующих этапов.</p>
+      <p className="mt-3 text-xs text-slate-400">Допуск по словарю и лексико-грамматический тест появятся на одном из следующих этапов.</p>
     </Card>
   );
 }
@@ -695,6 +748,14 @@ function ProgressTab({ progress }: { progress: OverviewResponse["progress"] }) {
         >
           Назначить диагностику
         </button>
+      </div>
+      <div className="mt-6 border-t border-slate-100 pt-4">
+        <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Внеаудиторная активность</h4>
+        <p className="text-sm text-slate-800">{progress.extracurricularActivity.resultfulCount} результативных мероприятий</p>
+        <p className="mt-1 text-xs text-slate-400">
+          Динамика «Старт → Progress Check» появится вместе с модулем Progress Check — сейчас показано только текущее
+          состояние, без выдуманной точки отсчёта. Это отдельный показатель образовательной активности, а не языкового уровня.
+        </p>
       </div>
     </Card>
   );

@@ -10,6 +10,10 @@ build/
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
 
+# Загруженные подтверждающие документы достижений (Этап 8) — файлы
+# пользователей, не часть кодовой базы.
+backend/uploads/
+
 *.log
 .DS_Store
 *.tsbuildinfo

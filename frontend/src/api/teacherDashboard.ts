@@ -29,6 +29,11 @@ export interface OpportunityEntry {
   reasonText: string;
 }
 
+// "REQUIRED" | "EXEMPTED" — статус устной части зачёта (Этап 8),
+// единственное, однозначно вычислимое из одних квалификационных
+// баллов (см. backend/src/analytics/qualification.ts).
+export type OralPartStatus = "REQUIRED" | "EXEMPTED";
+
 export interface DashboardStudentRow {
   studentId: string;
   fullName: string;
@@ -42,8 +47,8 @@ export interface DashboardStudentRow {
   autonomy: number | null;
   developmentArea: string | null;
   potentialLabel: string | null;
-  qualificationPoints: number | null;
-  creditStatus: string | null;
+  qualificationPoints: number;
+  creditStatus: OralPartStatus;
 }
 
 export interface DashboardResponse {
@@ -61,13 +66,22 @@ export interface DashboardResponse {
     avgDiagnosticPercentage: number | null;
     avgMotivation: number | null;
     avgAutonomy: number | null;
-    qualificationPoints: { implemented: false };
+    // Этап 8: реальные данные модуля достижений.
+    qualificationPoints: { implemented: true; total: number; studentsWithFivePlus: number };
+    // "Готовы к зачёту" целиком — по-прежнему не реализовано (нужны ещё
+    // допуск по словарю и лексико-грамматический тест).
     credit: { implemented: false };
   };
   attention: AttentionEntry[];
   opportunities: OpportunityEntry[];
   progress: { status: "NOT_CONDUCTED"; recommendedAfterMonths: [number, number] };
-  credit: { implemented: false };
+  credit: {
+    vocabulary: { implemented: false };
+    lexicoGrammarTest: { implemented: false };
+    qualificationPoints: { implemented: true; total: number; studentsWithFivePlus: number };
+    oralPart: { implemented: true; exemptedCount: number; requiredCount: number };
+  };
+  achievementsPendingReview: number;
   students: DashboardStudentRow[];
 }
 

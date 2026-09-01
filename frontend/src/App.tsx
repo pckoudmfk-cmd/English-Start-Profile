@@ -19,6 +19,11 @@ import { StudentProfilePage } from "./pages/student/StudentProfilePage";
 import { DiagnosticsHubPage } from "./pages/student/diagnostics/DiagnosticsHubPage";
 import { QuestionnaireWizardPage } from "./pages/student/diagnostics/QuestionnaireWizardPage";
 import { DiagnosticWizardPage } from "./pages/student/diagnostics/DiagnosticWizardPage";
+import { StudentAchievementsPage } from "./pages/student/achievements/StudentAchievementsPage";
+import { AchievementFormPage } from "./pages/student/achievements/AchievementFormPage";
+import { AchievementDetailPage } from "./pages/student/achievements/AchievementDetailPage";
+import { TeacherAchievementsReviewPage } from "./pages/teacher/achievements/TeacherAchievementsReviewPage";
+import { TeacherAchievementDetailPage } from "./pages/teacher/achievements/TeacherAchievementDetailPage";
 import { InDevelopment } from "./components/InDevelopment";
 
 export default function App() {
@@ -42,7 +47,8 @@ export default function App() {
             <Route path="groups/:groupId/students/:studentId" element={<TeacherStudentProfilePage />} />
             <Route path="students" element={<InDevelopment title="Студенты" />} />
             <Route path="diagnostics" element={<InDevelopment title="Диагностика" />} />
-            <Route path="achievements" element={<InDevelopment title="Достижения" />} />
+            <Route path="achievements" element={<TeacherAchievementsReviewPage />} />
+            <Route path="achievements/:id" element={<TeacherAchievementDetailPage />} />
             <Route path="credit" element={<InDevelopment title="Зачёт" />} />
             <Route path="analytics" element={<InDevelopment title="Аналитика" />} />
             <Route path="settings" element={<InDevelopment title="Настройки" />} />
@@ -57,7 +63,10 @@ export default function App() {
             <Route path="diagnostics/:groupId" element={<QuestionnaireWizardPage />} />
             <Route path="diagnostics/:groupId/test" element={<DiagnosticWizardPage />} />
             <Route path="goals" element={<InDevelopment title="Мои цели" />} />
-            <Route path="achievements" element={<InDevelopment title="Мои достижения" />} />
+            <Route path="achievements" element={<StudentAchievementsPage />} />
+            <Route path="achievements/new" element={<AchievementFormPage />} />
+            <Route path="achievements/:id/edit" element={<AchievementFormPage />} />
+            <Route path="achievements/:id" element={<AchievementDetailPage />} />
             <Route path="credit" element={<InDevelopment title="Мой зачёт" />} />
             <Route path="progress" element={<InDevelopment title="Мой прогресс" />} />
           </Route>

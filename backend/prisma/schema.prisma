@@ -41,6 +41,9 @@ model User {
   teacherNotesAboutMe   TeacherNote[] @relation("TeacherNoteStudent")
   goalStatusesAuthored  StudentGoalStatus[] @relation("GoalStatusAuthor")
   goalStatusesAboutMe   StudentGoalStatus[] @relation("GoalStatusStudent")
+  achievementsAsStudent Achievement[] @relation("AchievementStudent")
+  achievementsReviewed  Achievement[] @relation("AchievementTeacher")
+  qualificationPoints   QualificationPoint[]
 
   @@index([role])
 }
@@ -138,6 +141,7 @@ model Group {
   diagnosticAttempts    DiagnosticAttempt[]
   teacherNotes          TeacherNote[]
   goalStatuses          StudentGoalStatus[]
+  achievements          Achievement[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -430,4 +434,140 @@ model StudentGoalStatusEvent {
   createdAt  DateTime @default(now())
 
   @@index([groupId, studentId, goalCode])
+}
+
+// ---------------------------------------------------------------------
+// Этап 8: ДОСТИЖЕНИЯ, ВНЕАУДИТОРНАЯ ДЕЯТЕЛЬНОСТЬ, КВАЛИФИКАЦИОННЫЕ БАЛЛЫ.
+//
+// Базовое правило (ТЗ п.1, 36 — намеренно не расширяю): результативное
+// мероприятие = 1 квалификационный балл, не больше, никаких других видов
+// баллов/коэффициентов/баллов за посещение или волонтёрство.
+//
+// Заявленный студентом результат (claimedResult/resultPlace/…) — это
+// только заявление, а не факт (ТЗ п.32): единственный источник истины о
+// начисленном балле — отдельная модель QualificationPoint, создаваемая
+// ТОЛЬКО явным действием преподавателя "Подтвердить — 1 балл". Поле
+// Achievement.qualificationPoint — денормализованный кэш для быстрого
+// отображения (0 или 1), а не источник истины.
+// ---------------------------------------------------------------------
+
+model Achievement {
+  id        String @id @default(uuid())
+  studentId String
+  student   User   @relation("AchievementStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  // Снимок на момент создания — тот же приём защиты в глубину, что и у
+  // QuestionnaireAttempt/DiagnosticAttempt (см. комментарии там):
+  // courseId/academicYearId не выводятся через group->course на лету,
+  // чтобы будущий перевод группы в другой курс не переписывал задним
+  // числом принадлежность уже поданных достижений.
+  courseId       String
+  academicYearId String
+
+  eventName String
+  eventDate DateTime
+  organizer String
+  // CONFERENCE | COMPETITION | OLYMPIAD | ACADEMIC | PROJECT | OTHER
+  // (ТЗ п.5 — "не добавляй дополнительные категории без необходимости";
+  // раздел 15 описывает те же категории прозой, отдельной таксономии не
+  // завожу)
+  eventType String
+
+  // PARTICIPANT | PRIZE_PLACE | WINNER | PUBLISHED | NOMINATION_WINNER | OTHER
+  claimedResult      String
+  claimedResultOther String? // текст, если claimedResult = OTHER
+  resultPlace        String? // например "II место" (ТЗ п.17, для PRIZE_PLACE)
+  resultNomination   String? // название номинации (ТЗ п.18, для NOMINATION_WINNER)
+  description        String?
+
+  // DRAFT | PENDING | CONFIRMED | CONFIRMED_NO_POINT | REJECTED | NEEDS_CLARIFICATION
+  status String @default("DRAFT")
+  // Денормализованный кэш 0/1 — источник истины см. QualificationPoint.
+  qualificationPoint Int @default(0)
+
+  teacherId      String?
+  teacher        User?   @relation("AchievementTeacher", fields: [teacherId], references: [id])
+  teacherComment String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  submittedAt DateTime? // DRAFT -> PENDING
+  verifiedAt  DateTime? // последнее решение преподавателя (любое из 4)
+
+  evidence                 AchievementEvidence[]
+  qualificationPointRecord QualificationPoint?
+  auditLog                 AchievementAuditLog[]
+
+  @@index([studentId])
+  @@index([groupId])
+  @@index([status])
+}
+
+// Подтверждающие документы. Отдельная таблица (не одно поле на
+// Achievement) — студент может приложить несколько документов
+// (страница сборника + сертификат + диплом, ТЗ п.16), и это же место
+// естественно расширить под будущие типы вложений (ТЗ п.37) без
+// изменения формы Achievement. Файлы хранятся на диске
+// (backend/uploads/achievements/), здесь — только метаданные;
+// storedName — случайное имя на диске, НЕ оригинальное имя файла (защита
+// от path traversal и коллизий).
+model AchievementEvidence {
+  id            String      @id @default(uuid())
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  fileName      String // оригинальное имя, показывается пользователю
+  storedName    String // имя файла на диске (uuid + расширение)
+  mimeType      String
+  size          Int
+  uploadedAt    DateTime @default(now())
+
+  @@index([achievementId])
+}
+
+// Начисленный квалификационный балл. achievementId уникален —
+// защита от повторного начисления НА УРОВНЕ БД (ТЗ п.13: "не
+// полагаться только на frontend"), а не только проверкой в коде
+// маршрута: даже гонка двух параллельных "Подтвердить — 1 балл" не
+// может создать вторую запись для одного достижения (тот же приём
+// уникального индекса + обработка P2002, что и у QuestionnaireAttempt/
+// DiagnosticAttempt на предыдущих этапах).
+model QualificationPoint {
+  id            String      @id @default(uuid())
+  achievementId String      @unique
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId       String
+  teacherId     String
+  // Значение всегда 1 в этой версии (ТЗ п.36: "не создавай разные
+  // значения баллов для разных мероприятий") — поле Int, а не
+  // захардкоженная константа в коде, чтобы будущее расширение (ТЗ п.37)
+  // не требовало миграции схемы, если правило когда-нибудь изменится.
+  value     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([studentId, groupId])
+  @@index([groupId])
+}
+
+// Append-only журнал (ТЗ п.31) — тот же приём, что и
+// StudentGoalStatusEvent на Этапе 7, но с более широким набором
+// действий, т.к. у достижения не один переключаемый статус, а полный
+// workflow с решениями преподавателя.
+model AchievementAuditLog {
+  id            String      @id @default(uuid())
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  actorId       String // студент или преподаватель, в зависимости от action
+  // CREATED | SUBMITTED | EDITED | EVIDENCE_ADDED | EVIDENCE_REMOVED |
+  // CLARIFICATION_REQUESTED | CONFIRMED | CONFIRMED_NO_POINT |
+  // POINT_AWARDED | REJECTED | STATUS_REVERTED | POINT_REVOKED
+  action    String
+  fromValue String?
+  toValue   String?
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([achievementId])
 }

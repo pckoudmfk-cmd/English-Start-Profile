@@ -246,7 +246,7 @@ function DashboardView({ dashboard, joinCode }: { dashboard: DashboardResponse; 
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <ProgressBlock progress={dashboard.progress} />
-            <CreditProgressBlock />
+            <CreditProgressBlock credit={dashboard.credit} pendingReview={dashboard.achievementsPendingReview} />
           </div>
           <StudentsTable dashboard={dashboard} />
         </>
@@ -291,7 +291,6 @@ function CopyCodeHint({ code }: { code: string }) {
 
 function KpiGrid({ dashboard }: { dashboard: DashboardResponse }) {
   const { kpi } = dashboard;
-  const readyForCredit = dashboard.students.filter((s) => s.diagnosticStatus === "COMPLETED").length;
   return (
     <Card>
       <h3 className="mb-4 text-sm font-semibold text-slate-700">Состояние группы</h3>
@@ -307,12 +306,15 @@ function KpiGrid({ dashboard }: { dashboard: DashboardResponse }) {
         />
         <KpiTile value={`${formatScale(kpi.avgMotivation)} / 5`} caption="Средняя мотивация" />
         <KpiTile value={`${formatScale(kpi.avgAutonomy)} / 5`} caption="Средняя самостоятельность" />
-        <KpiTile value="Не реализовано" muted caption="Квалификационные баллы" />
         <KpiTile
-          value={kpi.credit.implemented ? String(readyForCredit) : "Не реализовано"}
-          muted={!kpi.credit.implemented}
-          caption="Готовы к зачёту"
+          value={String(kpi.qualificationPoints.total)}
+          caption="Всего подтверждено в группе"
+          hint={kpi.qualificationPoints.studentsWithFivePlus > 0 ? `${kpi.qualificationPoints.studentsWithFivePlus} ${studentsWord(kpi.qualificationPoints.studentsWithFivePlus)} уже имеют 5+ баллов` : undefined}
         />
+        {/* "Готовы к зачёту" целиком — по-прежнему честно не реализовано:
+            помимо баллов нужны ещё допуск по словарю и лексико-
+            грамматический тест, которых нет ни на одном из этапов. */}
+        <KpiTile value="Не реализовано" muted caption="Готовы к зачёту" />
       </div>
     </Card>
   );
@@ -436,19 +438,40 @@ function ProgressBlock({ progress }: { progress: DashboardResponse["progress"] }
 
 // --- «Прогресс по зачёту» — модуль ещё не реализован (ТЗ п.11) --------
 
-function CreditProgressBlock() {
+function CreditProgressBlock({ credit, pendingReview }: { credit: DashboardResponse["credit"]; pendingReview: number }) {
   return (
     <Card>
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Прогресс по зачёту</h3>
-      <ul className="space-y-2 text-sm text-slate-500">
-        <li>Активный словарь — не реализовано</li>
-        <li>Лексико-грамматический тест — не реализовано</li>
-        <li>Квалификационные баллы — не реализовано</li>
-        <li>Устная часть — не реализовано</li>
+      <ul className="space-y-2 text-sm text-slate-700">
+        <li className="text-slate-500">Активный словарь — не реализовано</li>
+        <li className="text-slate-500">Лексико-грамматический тест — не реализовано</li>
+        <li>
+          Квалификационные баллы — <span className="font-medium">{credit.qualificationPoints.total}</span>
+          {credit.qualificationPoints.studentsWithFivePlus > 0 && (
+            <span className="text-slate-500"> ({credit.qualificationPoints.studentsWithFivePlus} {studentsWord(credit.qualificationPoints.studentsWithFivePlus)} с 5+ баллами)</span>
+          )}
+        </li>
+        <li>
+          Устная часть — <span className="font-medium">{credit.oralPart.exemptedCount}</span> освобождены, <span className="font-medium">{credit.oralPart.requiredCount}</span> обязательна
+        </li>
       </ul>
-      <p className="mt-3 text-xs text-slate-400">Модуль «Зачёт» появится на одном из следующих этапов.</p>
+      {pendingReview > 0 && (
+        <Link to="/teacher/achievements" className="mt-3 block text-xs font-medium text-brand-600 hover:underline">
+          {pendingReview} {achievementsWord(pendingReview)} на проверке →
+        </Link>
+      )}
+      <p className="mt-3 text-xs text-slate-400">Допуск по словарю и лексико-грамматический тест появятся на одном из следующих этапов.</p>
     </Card>
   );
+}
+
+function achievementsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "достижений";
+  if (mod10 === 1) return "достижение";
+  if (mod10 >= 2 && mod10 <= 4) return "достижения";
+  return "достижений";
 }
 
 // --- Таблица студентов (ТЗ п.12-15) ------------------------------------
@@ -617,8 +640,8 @@ function StudentsTable({ dashboard }: { dashboard: DashboardResponse }) {
                     <td className="py-2 pr-3">{formatScale(s.autonomy)}</td>
                     <td className="py-2 pr-3">{s.developmentArea ?? "—"}</td>
                     <td className="py-2 pr-3">{s.potentialLabel ?? "—"}</td>
-                    <td className="py-2 pr-3 text-slate-400">Не реализовано</td>
-                    <td className="py-2 pr-3 text-slate-400">Не реализовано</td>
+                    <td className="py-2 pr-3">{s.qualificationPoints}</td>
+                    <td className="py-2 pr-3">{creditStatusLabel(s.creditStatus)}</td>
                     <td className="py-2 pr-3">
                       <div className="flex gap-2">
                         <Link to={`/teacher/groups/${dashboard.group.id}/students/${s.studentId}`} className="text-xs font-medium text-brand-600 hover:underline">
@@ -648,9 +671,9 @@ function StudentsTable({ dashboard }: { dashboard: DashboardResponse }) {
                   <dt className="text-slate-400">Зона развития</dt>
                   <dd>{s.developmentArea ?? "—"}</dd>
                   <dt className="text-slate-400">Баллы</dt>
-                  <dd>Не реализовано</dd>
+                  <dd>{s.qualificationPoints}</dd>
                   <dt className="text-slate-400">Зачёт</dt>
-                  <dd>Не реализовано</dd>
+                  <dd>{creditStatusLabel(s.creditStatus)}</dd>
                 </dl>
                 <div className="mt-3 flex gap-3">
                   <Link to={`/teacher/groups/${dashboard.group.id}/students/${s.studentId}`} className="text-xs font-medium text-brand-600 hover:underline">
@@ -684,6 +707,12 @@ function statusLabel(status: DashboardStudentRow["diagnosticStatus"]): string {
   if (status === "IN_PROGRESS") return "В процессе";
   if (status === "COMPLETED") return "Завершена";
   return "Не начата";
+}
+
+function creditStatusLabel(status: DashboardStudentRow["creditStatus"]): string {
+  // Только статус устной части (Этап 8) — полный статус зачёта не
+  // реализован (см. комментарий у KpiGrid/CreditProgressBlock выше).
+  return status === "EXEMPTED" ? "Устная часть: освобождён" : "Устная часть: требуется";
 }
 
 function NoteModal({ groupId, student, onClose }: { groupId: string; student: DashboardStudentRow; onClose: () => void }) {

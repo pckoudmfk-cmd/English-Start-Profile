@@ -1,5 +1,6 @@
 import { api } from "./client";
-import type { AttemptStatus, GapCategory } from "./teacherDashboard";
+import type { AttemptStatus, GapCategory, OralPartStatus } from "./teacherDashboard";
+import type { AchievementStatus, ClaimedResult, EventType } from "./achievements";
 
 // Типы отражают форму ответов backend (см. backend/src/routes/
 // teacherStudentProfile.ts) — намеренно 1:1, три отдельных маршрута
@@ -58,8 +59,9 @@ export interface OverviewResponse {
     isLargeGap: boolean;
     motivation: number | null;
     autonomy: number | null;
-    qualificationPoints: { implemented: false };
-    creditStatus: { implemented: false };
+    // Этап 8: реальные данные модуля достижений.
+    qualificationPoints: { implemented: true; points: number; oralPartStatus: OralPartStatus; pointsUntilExemption: number };
+    creditStatus: { implemented: false }; // полный статус зачёта — по-прежнему не реализован
   };
   overview: {
     available: boolean;
@@ -83,9 +85,26 @@ export interface OverviewResponse {
     willingnessToWork: number | null;
     plannedActions: string[];
   };
-  achievements: { implemented: false };
+  achievements: {
+    implemented: true;
+    portfolioCount: number;
+    resultfulCount: number;
+    list: {
+      id: string;
+      eventName: string;
+      eventDate: string;
+      eventType: EventType;
+      claimedResult: ClaimedResult;
+      status: AchievementStatus;
+      qualificationPoint: number;
+    }[];
+  };
   credit: { implemented: false };
-  progress: { status: "NOT_CONDUCTED"; recommendedAfterMonths: [number, number] };
+  progress: {
+    status: "NOT_CONDUCTED";
+    recommendedAfterMonths: [number, number];
+    extracurricularActivity: { resultfulCount: number };
+  };
   notes: NoteEntry[];
 }
 

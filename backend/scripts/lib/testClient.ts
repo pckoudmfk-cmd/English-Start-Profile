@@ -48,6 +48,39 @@ export async function request(
 }
 
 /**
+ * Multipart-загрузка файла (Этап 8: подтверждающие документы
+ * достижений) — отдельно от request(), которая всегда шлёт JSON.
+ * fileContent — сырые байты; в Node 18+ глобальный FormData/Blob
+ * достаточно для реального multipart-запроса к multer на сервере.
+ */
+export async function uploadFile(
+  path: string,
+  opts: { jar?: CookieJar; fileName: string; mimeType: string; fileContent: Buffer | string }
+) {
+  const { jar, fileName, mimeType, fileContent } = opts;
+  const form = new FormData();
+  form.append("file", new Blob([fileContent], { type: mimeType }), fileName);
+
+  const headers: Record<string, string> = {};
+  if (jar?.cookie) headers.Cookie = jar.cookie;
+
+  const res = await fetch(`${BASE_URL}${path}`, { method: "POST", headers, body: form });
+
+  if (jar) {
+    const c = extractCookie(res.headers.get("set-cookie"));
+    if (c) jar.cookie = c;
+  }
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // no body
+  }
+  return { status: res.status, body: json };
+}
+
+/**
  * Создаёт независимый счётчик проверок (свой на каждый скрипт — без
  * общего мутируемого состояния между verify-*.ts).
  */

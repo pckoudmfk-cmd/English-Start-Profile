@@ -38,6 +38,7 @@ import {
   type ProfileInputs,
 } from "../analytics/profile";
 import { findOwnedGroupHeader, studentDisplayName } from "../analytics/teacherAccess";
+import { getStudentQualificationSummary } from "../analytics/qualification";
 
 const router = Router();
 
@@ -71,7 +72,7 @@ router.get("/:id/students/:studentId", async (req, res) => {
   if (!group) return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Группа не найдена." });
   if (!membership) return res.status(404).json({ error: "STUDENT_NOT_FOUND", message: "Студент не найден в этой группе." });
 
-  const [questionnaireAttempt, diagnosticAttempt, notes, goalStatuses] = await Promise.all([
+  const [questionnaireAttempt, diagnosticAttempt, notes, goalStatuses, portfolioCount, resultfulCount, qualification] = await Promise.all([
     prisma.questionnaireAttempt.findFirst({
       where: { groupId: group.id, studentId: membership.studentId, kind: "START" },
       orderBy: { createdAt: "desc" },
@@ -88,7 +89,25 @@ router.get("/:id/students/:studentId", async (req, res) => {
     prisma.studentGoalStatus.findMany({
       where: { groupId: group.id, studentId: membership.studentId },
     }),
+    // Портфолио (ТЗ п.20): все подтверждённые достижения, с баллом или
+    // без — CONFIRMED и CONFIRMED_NO_POINT. Черновики/на проверке/
+    // отклонённые/требующие уточнения в портфолио не входят.
+    prisma.achievement.count({ where: { groupId: group.id, studentId: membership.studentId, status: { in: ["CONFIRMED", "CONFIRMED_NO_POINT"] } } }),
+    // Результативные достижения — отдельное число (ТЗ п.20, 25): только
+    // те, что реально дали балл.
+    prisma.achievement.count({ where: { groupId: group.id, studentId: membership.studentId, status: "CONFIRMED" } }),
+    getStudentQualificationSummary(group.id, membership.studentId),
   ]);
+
+  // Список достижений студента (не черновики — черновик ещё не "его"
+  // для преподавателя, см. тот же принцип в routes/teacherAchievements.ts) —
+  // достаточно лёгкий (обычно не более нескольких десятков строк), чтобы
+  // не заводить под него отдельную вкладку/маршрут (см. комментарий
+  // вверху файла про заметки/цели — тот же случай).
+  const achievementsList = await prisma.achievement.findMany({
+    where: { groupId: group.id, studentId: membership.studentId, status: { not: "DRAFT" } },
+    orderBy: { eventDate: "desc" },
+  });
 
   // Только нужные для Обзора коды (PROFILE_QUESTION_CODES, не все 45) —
   // и только если анкета завершена (частичные ответы не должны влиять
@@ -151,8 +170,11 @@ router.get("/:id/students/:studentId", async (req, res) => {
     },
     header: {
       diagnosticStatus: diagnosticAttempt?.status ?? "NOT_STARTED",
-      // Зачёт как модуль не реализован — честный ярлык вместо статуса.
-      creditStatusLabel: "Не реализовано",
+      // Полный статус зачёта как таковой не реализован (нужен ещё допуск
+      // по словарю + лексико-грамматический тест) — но статус устной
+      // части однозначно вычислим из одних только баллов (Этап 8, ТЗ
+      // п.23), поэтому в шапке честно показывается именно он.
+      creditStatusLabel: qualification.oralPartStatus === "EXEMPTED" ? "Устная часть: освобождён" : "Устная часть: требуется",
     },
     kpi: {
       diagnosticPercentage,
@@ -161,8 +183,8 @@ router.get("/:id/students/:studentId", async (req, res) => {
       isLargeGap: selfAssessment !== null && normalizedDiagnostic !== null ? isLargeGap(selfAssessment, normalizedDiagnostic) : false,
       motivation,
       autonomy,
-      qualificationPoints: { implemented: false as const },
-      creditStatus: { implemented: false as const },
+      qualificationPoints: { implemented: true as const, points: qualification.points, oralPartStatus: qualification.oralPartStatus, pointsUntilExemption: qualification.pointsUntilExemption },
+      creditStatus: { implemented: false as const }, // полный статус зачёта — по-прежнему не реализован (см. выше)
     },
     overview: {
       available: overviewAvailable,
@@ -179,13 +201,34 @@ router.get("/:id/students/:studentId", async (req, res) => {
       willingnessToWork: typeof answers.Q39 === "number" ? answers.Q39 : null,
       plannedActions: Array.isArray(answers.Q40) ? formatMultiChoice("Q40", answers.Q40) : [],
     },
-    // Достижения/Зачёт — модули не реализованы (см. README «Не
-    // реализовано»); честная заглушка вместо выдуманных данных.
-    achievements: { implemented: false as const },
+    // Достижения (ТЗ п.20, 25) — портфолио (все подтверждённые, с
+    // баллом или без) отделено от результативных (только те, что дали
+    // балл) — это разные понятия, не переиспользуют друг друга.
+    achievements: {
+      implemented: true as const,
+      portfolioCount,
+      resultfulCount,
+      list: achievementsList.map((a) => ({
+        id: a.id,
+        eventName: a.eventName,
+        eventDate: a.eventDate,
+        eventType: a.eventType,
+        claimedResult: a.claimedResult,
+        status: a.status,
+        qualificationPoint: a.qualificationPoint,
+      })),
+    },
+    // Полный модуль "Зачёт" (допуск/тест) по-прежнему не реализован.
     credit: { implemented: false as const },
     progress: {
       status: "NOT_CONDUCTED" as const,
       recommendedAfterMonths: [5, 6] as const,
+      // Текущее число результативных мероприятий (ТЗ п.26). Полноценная
+      // динамика "Старт → Progress Check" требует исторического снимка
+      // на момент Start Diagnostic, которого не существует (Progress
+      // Check не реализован) — показывается только текущее состояние,
+      // без выдуманной точки отсчёта.
+      extracurricularActivity: { resultfulCount },
     },
     notes: notes.map((n) => ({ id: n.id, text: n.text, noteType: n.noteType, createdAt: n.createdAt })),
   });
