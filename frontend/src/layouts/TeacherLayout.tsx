@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { AppShell, type NavItem } from "./AppShell";
+import { workspaceApi } from "../api/workspace";
 
 const teacherNav: NavItem[] = [
   { to: "/teacher", label: "Главная", end: true },
@@ -15,5 +17,18 @@ const teacherNav: NavItem[] = [
 ];
 
 export function TeacherLayout() {
-  return <AppShell navItems={teacherNav} roleLabel="Преподаватель" />;
+  // ФИО для шапки (Этап 6, п.2) — берём из профиля преподавателя, если
+  // он уже заполнен; AppShell сам подставит email, если запрос ещё не
+  // завершился или ФИО не заполнено. Ошибку запроса намеренно
+  // проглатываем — отсутствие ФИО в шапке не должно ронять layout.
+  const [fullName, setFullName] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    workspaceApi
+      .getProfile()
+      .then((p) => setFullName(p?.fullName || undefined))
+      .catch(() => setFullName(undefined));
+  }, []);
+
+  return <AppShell navItems={teacherNav} roleLabel="Преподаватель" displayName={fullName} />;
 }

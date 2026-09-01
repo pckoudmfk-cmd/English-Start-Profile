@@ -37,6 +37,8 @@ model User {
   groupMemberships GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
   diagnosticAttempts    DiagnosticAttempt[]
+  teacherNotesAuthored  TeacherNote[] @relation("TeacherNoteAuthor")
+  teacherNotesAboutMe   TeacherNote[] @relation("TeacherNoteStudent")
 
   @@index([role])
 }
@@ -132,6 +134,7 @@ model Group {
   memberships           GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
   diagnosticAttempts    DiagnosticAttempt[]
+  teacherNotes          TeacherNote[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -349,4 +352,29 @@ model DiagnosticResult {
   skillBreakdownJson String
   diagnosticRange    String?
   computedAt         DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------
+// Этап 6: TEACHER DASHBOARD.
+//
+// Заметка преподавателя о студенте — в контексте конкретной группы
+// (SPEC.md, TeacherComment). Пишет и видит только преподаватель,
+// владеющий этой группой (проверяется по teacherId, тот же принцип
+// защиты в глубину, что и everywhere else в проекте) — сам студент
+// заметки не видит, это внутренний инструмент преподавателя.
+// ---------------------------------------------------------------------
+
+model TeacherNote {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation("TeacherNoteAuthor", fields: [teacherId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation("TeacherNoteStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([teacherId])
+  @@index([groupId, studentId])
 }

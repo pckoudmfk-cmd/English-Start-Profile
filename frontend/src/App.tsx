@@ -13,6 +13,7 @@ import { AcademicYearsPage } from "./pages/teacher/AcademicYearsPage";
 import { CoursesPage } from "./pages/teacher/CoursesPage";
 import { GroupsPage } from "./pages/teacher/GroupsPage";
 import { GroupDetailPage } from "./pages/teacher/GroupDetailPage";
+import { TeacherStudentProfilePage } from "./pages/teacher/TeacherStudentProfilePage";
 import { StudentHome } from "./pages/student/StudentHome";
 import { StudentProfilePage } from "./pages/student/StudentProfilePage";
 import { DiagnosticsHubPage } from "./pages/student/diagnostics/DiagnosticsHubPage";
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="courses" element={<CoursesPage />} />
             <Route path="groups" element={<GroupsPage />} />
             <Route path="groups/:id" element={<GroupDetailPage />} />
+            <Route path="groups/:groupId/students/:studentId" element={<TeacherStudentProfilePage />} />
             <Route path="students" element={<InDevelopment title="Студенты" />} />
             <Route path="diagnostics" element={<InDevelopment title="Диагностика" />} />
             <Route path="achievements" element={<InDevelopment title="Достижения" />} />

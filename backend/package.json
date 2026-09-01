@@ -14,7 +14,8 @@
     "verify:workspace": "tsx scripts/verify-workspace-isolation.ts",
     "verify:onboarding": "tsx scripts/verify-student-onboarding.ts",
     "verify:questionnaire": "tsx scripts/verify-questionnaire.ts",
-    "verify:diagnostic": "tsx scripts/verify-diagnostic.ts"
+    "verify:diagnostic": "tsx scripts/verify-diagnostic.ts",
+    "verify:dashboard": "tsx scripts/verify-dashboard.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

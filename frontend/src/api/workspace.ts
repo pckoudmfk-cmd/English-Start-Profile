@@ -31,7 +31,16 @@ export interface Group {
   updatedAt: string;
 }
 
+export interface TeacherProfile {
+  fullName: string | null;
+  organization: string | null;
+  department: string | null;
+  position: string | null;
+  workEmail: string | null;
+}
+
 export const workspaceApi = {
+  getProfile: () => api.get<TeacherProfile | null>("/api/teacher/profile"),
   listAcademicYears: () => api.get<AcademicYear[]>("/api/teacher/academic-years"),
   createAcademicYear: (name: string) => api.post<AcademicYear>("/api/teacher/academic-years", { name }),
 
