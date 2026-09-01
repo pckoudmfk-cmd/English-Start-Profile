@@ -6,10 +6,21 @@ import { studentGroupsApi, type StudentGroupMembership } from "../../api/student
 import { Badge, Card, EmptyState, ErrorAlert, PageTitle } from "../../components/ui";
 import { JoinGroupCard } from "./JoinGroupCard";
 
-// Главная страница студента. Диагностика, зачёт и прочее ещё не
-// реализованы (см. следующие этапы) — намеренно не показываем ничего,
-// кроме честного статуса "не пройдена" для каждой группы: это не
-// заглушка ради заглушки, а буквально текущее положение дел.
+function diagnosticBadgeTone(status: StudentGroupMembership["startDiagnosticStatus"]) {
+  if (status === "COMPLETED") return "brand" as const;
+  if (status === "IN_PROGRESS") return "sky" as const;
+  return "slate" as const;
+}
+
+function diagnosticBadgeLabel(status: StudentGroupMembership["startDiagnosticStatus"]) {
+  if (status === "COMPLETED") return "Стартовая диагностика: пройдена";
+  if (status === "IN_PROGRESS") return "Стартовая диагностика: в процессе";
+  return "Стартовая диагностика: не пройдена";
+}
+
+// Главная страница студента. Цели, достижения, зачёт ещё не реализованы
+// (см. следующие этапы) — карточка "..." под списком групп честно об
+// этом говорит. Статус анкетирования — реальный (Этап 4), не заглушка.
 export function StudentHome() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<StudentGroupMembership[] | null>(null);
@@ -55,7 +66,11 @@ export function StudentHome() {
                 </div>
                 <div className="mt-1 text-xs text-slate-500">Преподаватель: {m.group.teacherName}</div>
                 <div className="mt-3">
-                  <Badge>Стартовая диагностика: не пройдена</Badge>
+                  <Link to={`/student/diagnostics/${m.group.id}`}>
+                    <Badge tone={diagnosticBadgeTone(m.startDiagnosticStatus)}>
+                      {diagnosticBadgeLabel(m.startDiagnosticStatus)}
+                    </Badge>
+                  </Link>
                 </div>
               </Card>
             ))}

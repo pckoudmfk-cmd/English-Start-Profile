@@ -6,8 +6,9 @@
 
 Разработка ведётся поэтапно. Отчёты по этапам —
 [`docs/STAGE_1_REPORT.md`](docs/STAGE_1_REPORT.md),
-[`docs/STAGE_2_REPORT.md`](docs/STAGE_2_REPORT.md) и
-[`docs/STAGE_3_REPORT.md`](docs/STAGE_3_REPORT.md).
+[`docs/STAGE_2_REPORT.md`](docs/STAGE_2_REPORT.md),
+[`docs/STAGE_3_REPORT.md`](docs/STAGE_3_REPORT.md) и
+[`docs/STAGE_4_REPORT.md`](docs/STAGE_4_REPORT.md).
 
 ## Реализовано
 
@@ -38,7 +39,18 @@
 - статус «Стартовая диагностика: не пройдена» на карточке группы
   студента.
 
-Progress Check и Credit Test — не реализованы, следующие этапы.
+**Этап 4 — START PROFILE (анкетирование, Q1–Q45):**
+
+- 13 последовательных экранов, ветвление, индикатор прогресса,
+  автосохранение, защита от потери данных, мобильная адаптация;
+- `QuestionnaireAttempt` привязан к student/group/course/academicYear,
+  исторические ответы не перезаписываются;
+- ответы размечены для будущей аналитики (`indexGroup`), но сами
+  индексы не считаются и студенту не показываются — только короткое
+  «Анкетирование завершено.».
+
+Языковой тест (Grammar/Vocabulary/Reading/…), Progress Check и Credit
+Test — не реализованы, следующие этапы.
 
 ## Технологический стек
 
@@ -117,6 +129,19 @@ npm run verify:onboarding
 просрочен), защиту от дублирования membership при повторном
 подключении и изоляцию списка групп между студентами (см.
 [`backend/scripts/verify-student-onboarding.ts`](backend/scripts/verify-student-onboarding.ts)).
+
+### Проверка анкетирования (Этап 4)
+
+```bash
+cd backend
+npm run verify:questionnaire
+```
+
+Проверяет создание попытки (включая гонку двух параллельных запросов),
+автосохранение и валидацию ответов, требование полноты обязательных
+вопросов, ветвление, неизменяемость завершённой анкеты и изоляцию
+между студентами (см.
+[`backend/scripts/verify-questionnaire.ts`](backend/scripts/verify-questionnaire.ts)).
 
 ## Переменные окружения
 

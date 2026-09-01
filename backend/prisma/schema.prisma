@@ -35,6 +35,7 @@ model User {
   groups        Group[]
 
   groupMemberships GroupMembership[]
+  questionnaireAttempts QuestionnaireAttempt[]
 
   @@index([role])
 }
@@ -127,7 +128,8 @@ model Group {
   updatedAt DateTime @updatedAt
 
   joinCodes   GroupJoinCode[]
-  memberships GroupMembership[]
+  memberships           GroupMembership[]
+  questionnaireAttempts QuestionnaireAttempt[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -182,4 +184,76 @@ model GroupMembership {
   @@unique([studentId, groupId])
   @@index([studentId])
   @@index([groupId])
+}
+
+// ---------------------------------------------------------------------
+// Этап 4: START PROFILE — анкетирование (Q1–Q45, backend/src/questionnaire).
+//
+// Одна попытка = одна анкета для конкретной пары (студент, группа).
+// student_id/course_id/group_id/academic_year_id хранятся на самой
+// попытке (снимок на момент создания, а не только через group ->
+// course -> academicYear) — по требованию ТЗ и по уже устоявшемуся в
+// проекте принципу защиты в глубину (см. комментарий у AcademicYear/
+// Course/Group выше). kind зарезервирован под будущие Progress Check /
+// Credit Test (пока используется только "START", логика этих режимов
+// не реализована).
+//
+// Завершённая попытка (status = COMPLETED) неизменяема: маршрут
+// автосохранения ответа отклоняет запись, если попытка уже завершена
+// — "исторические ответы не перезаписывать" из ТЗ.
+// ---------------------------------------------------------------------
+
+model QuestionnaireAttempt {
+  id             String    @id @default(uuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+  kind           String    @default("START") // START | PROGRESS | CREDIT (сейчас используется только START)
+  status         String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  answers QuestionnaireAnswer[]
+
+  // Ровно одна попытка данного вида (START/PROGRESS/CREDIT) на пару
+  // (студент, группа). Без этого ограничения "найти-или-создать" в
+  // POST /attempts подвержено гонке: два параллельных запроса (двойной
+  // клик, две вкладки, повторный запрос сети — на практике реально
+  // воспроизводится двойным вызовом эффекта монтирования в React
+  // StrictMode) оба видят "попытки ещё нет" и создают два разных ряда;
+  // сохранённые ответы уходят в один, а более поздние чтения ("какая
+  // попытка самая свежая") могут вернуть другой, пустой. Уникальный
+  // индекс превращает это в конфликт на уровне БД, который обработчик
+  // ловит и на который отвечает, отдавая уже существующую попытку.
+  @@unique([studentId, groupId, kind])
+  @@index([studentId])
+  @@index([groupId])
+}
+
+// Один ответ на один вопрос анкеты в рамках попытки. valueJson хранит
+// значение в JSON-виде (строка / массив строк / число / объект вида
+// {навык: оценка}) — конкретная форма зависит от типа вопроса, см.
+// backend/src/questionnaire/definition.ts. indexGroup — СНИМОК группы
+// показателя (self-assessment/motivation/…) на момент ответа: если
+// классификация вопроса в definition.ts когда-нибудь изменится, уже
+// сохранённые исторические ответы не должны задним числом менять свою
+// категорию — это и есть "подготовленные для аналитики данные" из ТЗ,
+// без вычисления самих индексов на этом этапе.
+model QuestionnaireAnswer {
+  id           String   @id @default(uuid())
+  attemptId    String
+  attempt      QuestionnaireAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionCode String
+  valueJson    String
+  indexGroup   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([attemptId, questionCode])
+  @@index([attemptId])
 }

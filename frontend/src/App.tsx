@@ -15,6 +15,8 @@ import { GroupsPage } from "./pages/teacher/GroupsPage";
 import { GroupDetailPage } from "./pages/teacher/GroupDetailPage";
 import { StudentHome } from "./pages/student/StudentHome";
 import { StudentProfilePage } from "./pages/student/StudentProfilePage";
+import { DiagnosticsHubPage } from "./pages/student/diagnostics/DiagnosticsHubPage";
+import { QuestionnaireWizardPage } from "./pages/student/diagnostics/QuestionnaireWizardPage";
 import { InDevelopment } from "./components/InDevelopment";
 
 export default function App() {
@@ -48,7 +50,8 @@ export default function App() {
           <Route path="/student" element={<StudentLayout />}>
             <Route index element={<StudentHome />} />
             <Route path="profile" element={<StudentProfilePage />} />
-            <Route path="diagnostics" element={<InDevelopment title="Моя диагностика" />} />
+            <Route path="diagnostics" element={<DiagnosticsHubPage />} />
+            <Route path="diagnostics/:groupId" element={<QuestionnaireWizardPage />} />
             <Route path="goals" element={<InDevelopment title="Мои цели" />} />
             <Route path="achievements" element={<InDevelopment title="Мои достижения" />} />
             <Route path="credit" element={<InDevelopment title="Мой зачёт" />} />

@@ -154,17 +154,30 @@ router.get("/", async (req, res) => {
     orderBy: { joinedAt: "desc" },
   });
 
+  // На Этапе 3 статус анкетирования был всегда "не пройдена" (заглушка
+  // с честной формулировкой — самой анкеты ещё не существовало). С
+  // Этапа 4 статус реальный: смотрим последнюю попытку START для
+  // каждой группы. По одному запросу на все группы студента, не N+1.
+  const attempts = await prisma.questionnaireAttempt.findMany({
+    where: { studentId: req.user!.id, kind: "START", groupId: { in: memberships.map((m) => m.groupId) } },
+    orderBy: { createdAt: "desc" },
+  });
+  const attemptByGroup = new Map<string, (typeof attempts)[number]>();
+  for (const a of attempts) {
+    if (!attemptByGroup.has(a.groupId)) attemptByGroup.set(a.groupId, a); // первая = самая свежая (desc)
+  }
+
   return res.json(
-    memberships.map((m) => ({
-      id: m.id,
-      joinedAt: m.joinedAt,
-      group: serializeGroupPreview(m.group),
-      // Диагностика ещё не реализована (следующие этапы) — статус пока
-      // всегда "не пройдена" для любого членства, честно и без
-      // фиктивных чисел: это буквально так для каждого студента на
-      // текущей стадии продукта.
-      startDiagnosticStatus: "NOT_STARTED" as const,
-    }))
+    memberships.map((m) => {
+      const attempt = attemptByGroup.get(m.groupId);
+      return {
+        id: m.id,
+        joinedAt: m.joinedAt,
+        group: serializeGroupPreview(m.group),
+        startDiagnosticStatus: (attempt?.status ?? "NOT_STARTED") as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
+        startDiagnosticAttemptId: attempt?.id ?? null,
+      };
+    })
   );
 });
 

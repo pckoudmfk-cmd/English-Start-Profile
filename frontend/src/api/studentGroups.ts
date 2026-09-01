@@ -25,7 +25,8 @@ export interface StudentGroupMembership {
   id: string;
   joinedAt: string;
   group: GroupPreview;
-  startDiagnosticStatus: "NOT_STARTED";
+  startDiagnosticStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  startDiagnosticAttemptId: string | null;
 }
 
 export const studentGroupsApi = {

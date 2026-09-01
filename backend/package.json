@@ -12,7 +12,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "verify:access": "tsx scripts/verify-access-control.ts",
     "verify:workspace": "tsx scripts/verify-workspace-isolation.ts",
-    "verify:onboarding": "tsx scripts/verify-student-onboarding.ts"
+    "verify:onboarding": "tsx scripts/verify-student-onboarding.ts",
+    "verify:questionnaire": "tsx scripts/verify-questionnaire.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
