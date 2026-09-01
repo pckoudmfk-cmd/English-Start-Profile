@@ -76,9 +76,14 @@ app.use("/api/student/credit", studentCreditRouter);
 app.use("/api/student/progress-check", studentProgressCheckRouter);
 app.use("/api/student", studentRouter);
 
-// Единый обработчик 404 для несуществующих API-маршрутов.
+// Единый обработчик 404 для несуществующих API-маршрутов. message
+// добавлен при аудите Этапа 11 (раздел "Обработка ошибок") — раньше
+// это был единственный ответ backend без message, из-за чего в
+// (недостижимом при штатной работе) сценарии, если бы frontend всё же
+// обратился к несуществующему маршруту, ApiError.message откатился бы
+// на голый код "NOT_FOUND" вместо понятного русского текста.
 app.use("/api", (_req, res) => {
-  res.status(404).json({ error: "NOT_FOUND" });
+  res.status(404).json({ error: "NOT_FOUND", message: "Запрошенный ресурс не найден." });
 });
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
