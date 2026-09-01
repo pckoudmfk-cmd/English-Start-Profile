@@ -1,0 +1,65 @@
+// English Start Profile — Этап 1: авторизация, роли, профили пользователей.
+//
+// Роль хранится как строка ("TEACHER" | "STUDENT" | "ADMIN"), а не как
+// нативный enum БД: приложение использует SQLite в разработке и Postgres
+// в проде, и мы не хотим завязываться на СУБД-специфичные enum'ы на этом
+// этапе. Значение валидируется на уровне приложения (см. src/utils/roles.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         String // TEACHER | STUDENT | ADMIN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Токен восстановления доступа (см. раздел "Восстановление доступа").
+  // Хранится в виде хэша, не в открытом виде.
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+
+  @@index([role])
+}
+
+// Профиль преподавателя. userId уникален -> связь 1:1 с User.
+// Доступ на чтение/запись возможен только для владельца записи —
+// см. src/routes/teacher.ts (поиск исключительно по req.user.id, без
+// параметра id в маршруте).
+model TeacherProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String?
+  organization String?
+  department   String?
+  position     String?
+  workEmail    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Профиль студента. Та же модель изоляции, что и у TeacherProfile.
+model StudentProfile {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String?
+  email        String?
+  specialty    String?
+  course       String?
+  academicYear String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

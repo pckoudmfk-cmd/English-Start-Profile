@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+
+# env files с секретами — коммитим только .env.example
+.env
+.env.local
+
+# SQLite dev-база и служебные файлы Prisma
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+*.log
+.DS_Store
+*.tsbuildinfo
