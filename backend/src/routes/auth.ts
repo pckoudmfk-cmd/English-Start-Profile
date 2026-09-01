@@ -97,10 +97,18 @@ router.get("/me", requireAuth, async (req, res) => {
 // Полноценная отправка email не входит в Этап 1 (нет почтового
 // провайдера в архитектуре). Реализован полный серверный workflow
 // (токен с ограниченным сроком жизни, хранение только хэша токена,
-// одноразовое использование); в dev-режиме токен возвращается прямо в
-// ответе API и пишется в лог сервера, чтобы восстановление можно было
-// протестировать без email-провайдера. Перед продакшн-использованием
-// нужно подключить реальную отправку письма и убрать токен из ответа.
+// одноразовое использование).
+//
+// Этап 11 (QA-аудит), CRITICAL №1: раньше токен безусловно возвращался
+// в ответе API и писался в лог — без email-провайдера это был путь к
+// полному захвату ЛЮБОГО аккаунта по одному известному email, без
+// доступа к почте жертвы. Явный opt-in флаг ниже — единственный способ
+// увидеть токен без реальной отправки письма: по умолчанию (флаг не
+// установлен) токен нигде не появляется, ни в ответе, ни в логе — то
+// есть безопасно "по умолчанию", а не "безопасно, если не забыть
+// установить NODE_ENV=production" (частая причина утечек именно
+// такого рода — забытая переменная окружения).
+const exposeDevPasswordResetToken = process.env.EXPOSE_DEV_PASSWORD_RESET_TOKEN === "true";
 
 router.post("/forgot-password", async (req, res) => {
   const parsed = z.object({ email: z.string().trim().toLowerCase().email() }).safeParse(req.body);
@@ -128,9 +136,12 @@ router.post("/forgot-password", async (req, res) => {
     data: { passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt },
   });
 
+  if (!exposeDevPasswordResetToken) {
+    return res.json(genericResponse);
+  }
+
   // eslint-disable-next-line no-console
   console.log(`[dev] Ссылка восстановления доступа для ${email}: /reset-password?token=${token}`);
-
   return res.json({ ...genericResponse, devToken: token });
 });
 

@@ -20,7 +20,8 @@
     "verify:achievements": "tsx scripts/verify-achievements.ts",
     "verify:credit": "tsx scripts/verify-credit.ts",
     "verify:progress-check": "tsx scripts/verify-progress-check.ts",
-    "verify:qa-audit-security": "tsx scripts/verify-qa-audit-security.ts"
+    "verify:qa-audit-security": "tsx scripts/verify-qa-audit-security.ts",
+    "verify:password-reset": "tsx scripts/verify-password-reset.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

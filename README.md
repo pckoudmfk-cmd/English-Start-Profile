@@ -13,8 +13,12 @@
 [`docs/STAGE_6_REPORT.md`](docs/STAGE_6_REPORT.md),
 [`docs/STAGE_7_REPORT.md`](docs/STAGE_7_REPORT.md),
 [`docs/STAGE_8_REPORT.md`](docs/STAGE_8_REPORT.md),
-[`docs/STAGE_9_REPORT.md`](docs/STAGE_9_REPORT.md) и
-[`docs/STAGE_10_REPORT.md`](docs/STAGE_10_REPORT.md).
+[`docs/STAGE_9_REPORT.md`](docs/STAGE_9_REPORT.md),
+[`docs/STAGE_10_REPORT.md`](docs/STAGE_10_REPORT.md),
+[`docs/STAGE_11_QA_REPORT.md`](docs/STAGE_11_QA_REPORT.md) (финальный
+QA-аудит) и [`docs/STAGE_12_REPORT.md`](docs/STAGE_12_REPORT.md)
+(стабилизация — приложение готово к ручному пользовательскому
+тестированию).
 
 ## Реализовано
 
@@ -370,7 +374,43 @@ npm run verify:progress-check
 защиту от гонки на уровне БД и права доступа
 (см. [`backend/scripts/verify-progress-check.ts`](backend/scripts/verify-progress-check.ts)).
 
+### Проверка восстановления доступа (Этап 12)
+
+```bash
+cd backend
+npm run verify:password-reset
+```
+
+Реальными HTTP-запросами (и точечной правкой БД для эмуляции истечения
+срока) проверяет полный цикл `forgot-password` → `reset-password` →
+вход новым паролем, невалидный и истёкший токен, одноразовость токена,
+нейтральное сообщение (не палит факт регистрации email), отклонение
+слабого пароля — и, отдельно, само исправление Этапа 11 (CRITICAL):
+без явного `EXPOSE_DEV_PASSWORD_RESET_TOKEN=true` токен нигде не
+появляется в ответе API
+(см. [`backend/scripts/verify-password-reset.ts`](backend/scripts/verify-password-reset.ts)).
+
+### Проверка целевых сценариев QA-аудита (Этап 11)
+
+```bash
+cd backend
+npm run verify:qa-audit-security
+```
+
+Закрывает пробелы в покрытии, обнаруженные при финальном QA-аудите:
+IDOR на attempt-id Start Diagnostic и анкеты (студент угадывает id
+чужой попытки), попытки подмены сервер-вычисляемых полей в теле
+запроса (квалификационный балл, финальная оценка устной части,
+корректность ответа диагностики)
+(см. [`backend/scripts/verify-qa-audit-security.ts`](backend/scripts/verify-qa-audit-security.ts),
+[`docs/STAGE_11_QA_REPORT.md`](docs/STAGE_11_QA_REPORT.md)).
+
 ## Переменные окружения
 
 См. `backend/.env.example` и `frontend/.env.example`. `.env` файлы не
 коммитятся в репозиторий.
+
+`EXPOSE_DEV_PASSWORD_RESET_TOKEN` (backend, по умолчанию выключен) —
+только для локальной разработки без email-провайдера: возвращает
+токен восстановления пароля в ответе API вместо реальной отправки
+письма. **Никогда не включать в продакшене.**
