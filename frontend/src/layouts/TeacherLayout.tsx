@@ -2,6 +2,8 @@ import { AppShell, type NavItem } from "./AppShell";
 
 const teacherNav: NavItem[] = [
   { to: "/teacher", label: "Главная", end: true },
+  { to: "/teacher/academic-years", label: "Учебные годы" },
+  { to: "/teacher/courses", label: "Курсы" },
   { to: "/teacher/groups", label: "Группы" },
   { to: "/teacher/students", label: "Студенты" },
   { to: "/teacher/diagnostics", label: "Диагностика" },

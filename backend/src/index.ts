@@ -5,6 +5,9 @@ import cors from "cors";
 import authRouter from "./routes/auth";
 import teacherRouter from "./routes/teacher";
 import studentRouter from "./routes/student";
+import academicYearsRouter from "./routes/academicYears";
+import coursesRouter from "./routes/courses";
+import groupsRouter from "./routes/groups";
 
 const app = express();
 
@@ -24,6 +27,13 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+// Более специфичные подпути /api/teacher/* регистрируются ДО общего
+// teacherRouter (у которого есть "перехватывающий" router.use(requireAuth,
+// requireRole(...)) на "/profile"), чтобы запросы к ним не проходили через
+// проверки teacherRouter вхолостую и обрабатывались напрямую своим роутером.
+app.use("/api/teacher/academic-years", academicYearsRouter);
+app.use("/api/teacher/courses", coursesRouter);
+app.use("/api/teacher/groups", groupsRouter);
 app.use("/api/teacher", teacherRouter);
 app.use("/api/student", studentRouter);
 

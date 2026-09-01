@@ -30,6 +30,10 @@ model User {
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
 
+  academicYears AcademicYear[]
+  courses       Course[]
+  groups        Group[]
+
   @@index([role])
 }
 
@@ -62,4 +66,84 @@ model StudentProfile {
   academicYear String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------
+// Этап 2: Teacher Workspace — учебные годы, курсы, группы, join-коды.
+//
+// Иерархия: Teacher -> AcademicYear -> Course -> Group.
+// Каждая модель хранит teacherId НАПРЯМУЮ (а не только через цепочку
+// связей) — по аналогии с ТЗ ("не полагаться только на student_id",
+// раздел 83 SPEC.md): это защита в глубину, позволяющая проверять
+// владение одним прямым условием в WHERE, без обхода цепочки JOIN'ов,
+// где легко забыть проверку на промежуточном шаге.
+//
+// Членство студентов в группе (GroupMembership) сюда намеренно НЕ
+// входит — это часть Student Onboarding (следующий этап) и в этом
+// этапе не реализуется.
+// ---------------------------------------------------------------------
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses Course[]
+
+  // Преподаватель не может завести два учебных года с одинаковым названием.
+  @@unique([teacherId, name])
+  @@index([teacherId])
+}
+
+model Course {
+  id             String       @id @default(uuid())
+  teacherId      String
+  teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name           String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  groups Group[]
+
+  @@index([teacherId])
+  @@index([academicYearId])
+}
+
+model Group {
+  id        String   @id @default(uuid())
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  name      String
+  specialty String?
+  status    String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  joinCodes GroupJoinCode[]
+
+  @@index([teacherId])
+  @@index([courseId])
+}
+
+// История join-кодов группы. Активен максимум один код одновременно —
+// это гарантируется в коде приложения (routes/groups.ts), а не на
+// уровне схемы. Старые коды не удаляются (revokedAt вместо DELETE),
+// чтобы сохранить историю подключений по коду.
+model GroupJoinCode {
+  id        String    @id @default(uuid())
+  groupId   String
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  code      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  @@index([groupId])
 }

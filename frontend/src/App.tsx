@@ -9,6 +9,10 @@ import { TeacherLayout } from "./layouts/TeacherLayout";
 import { StudentLayout } from "./layouts/StudentLayout";
 import { TeacherHome } from "./pages/teacher/TeacherHome";
 import { TeacherProfilePage } from "./pages/teacher/TeacherProfilePage";
+import { AcademicYearsPage } from "./pages/teacher/AcademicYearsPage";
+import { CoursesPage } from "./pages/teacher/CoursesPage";
+import { GroupsPage } from "./pages/teacher/GroupsPage";
+import { GroupDetailPage } from "./pages/teacher/GroupDetailPage";
 import { StudentHome } from "./pages/student/StudentHome";
 import { StudentProfilePage } from "./pages/student/StudentProfilePage";
 import { InDevelopment } from "./components/InDevelopment";
@@ -27,7 +31,10 @@ export default function App() {
           <Route path="/teacher" element={<TeacherLayout />}>
             <Route index element={<TeacherHome />} />
             <Route path="profile" element={<TeacherProfilePage />} />
-            <Route path="groups" element={<InDevelopment title="Группы" />} />
+            <Route path="academic-years" element={<AcademicYearsPage />} />
+            <Route path="courses" element={<CoursesPage />} />
+            <Route path="groups" element={<GroupsPage />} />
+            <Route path="groups/:id" element={<GroupDetailPage />} />
             <Route path="students" element={<InDevelopment title="Студенты" />} />
             <Route path="diagnostics" element={<InDevelopment title="Диагностика" />} />
             <Route path="achievements" element={<InDevelopment title="Достижения" />} />
