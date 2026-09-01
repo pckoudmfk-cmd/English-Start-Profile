@@ -221,7 +221,7 @@ export function QuestionnaireWizardPage() {
   if (step === "intro") {
     return (
       <Card className="mx-auto max-w-xl">
-        <h1 className="mb-3 text-xl font-semibold text-slate-900">Стартовая диагностика</h1>
+        <h1 className="mb-3 text-xl font-semibold text-slate-900">Анкетирование</h1>
         <p className="mb-3 text-sm text-slate-600">
           Это не экзамен и не контрольная работа. Здесь нет «правильных» ответов на вопросы об
           отношении к английскому языку. Нам важно понять вашу стартовую точку, чтобы обучение было

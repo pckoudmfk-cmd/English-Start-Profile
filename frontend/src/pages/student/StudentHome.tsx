@@ -6,10 +6,20 @@ import { studentGroupsApi, type StudentGroupMembership } from "../../api/student
 import { Badge, Card, EmptyState, ErrorAlert, PageTitle } from "../../components/ui";
 import { JoinGroupCard } from "./JoinGroupCard";
 
-function diagnosticBadgeTone(status: StudentGroupMembership["startDiagnosticStatus"]) {
+function statusBadgeTone(status: StudentGroupMembership["questionnaireStatus"]) {
   if (status === "COMPLETED") return "brand" as const;
   if (status === "IN_PROGRESS") return "sky" as const;
   return "slate" as const;
+}
+
+// Анкетирование (Этап 4) и объективная стартовая диагностика (Этап 5) —
+// два разных модуля с разными данными (см. ТЗ Этапа 5: "не смешивай
+// его с анкетированием"), поэтому на карточке группы — два отдельных
+// статуса и две отдельные ссылки, а не один смешанный.
+function questionnaireBadgeLabel(status: StudentGroupMembership["questionnaireStatus"]) {
+  if (status === "COMPLETED") return "Анкетирование: пройдено";
+  if (status === "IN_PROGRESS") return "Анкетирование: в процессе";
+  return "Анкетирование: не пройдено";
 }
 
 function diagnosticBadgeLabel(status: StudentGroupMembership["startDiagnosticStatus"]) {
@@ -20,7 +30,7 @@ function diagnosticBadgeLabel(status: StudentGroupMembership["startDiagnosticSta
 
 // Главная страница студента. Цели, достижения, зачёт ещё не реализованы
 // (см. следующие этапы) — карточка "..." под списком групп честно об
-// этом говорит. Статус анкетирования — реальный (Этап 4), не заглушка.
+// этом говорит. Статусы анкетирования и диагностики — реальные.
 export function StudentHome() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<StudentGroupMembership[] | null>(null);
@@ -65,9 +75,14 @@ export function StudentHome() {
                   {m.group.course} · {m.group.academicYear}
                 </div>
                 <div className="mt-1 text-xs text-slate-500">Преподаватель: {m.group.teacherName}</div>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Link to={`/student/diagnostics/${m.group.id}`}>
-                    <Badge tone={diagnosticBadgeTone(m.startDiagnosticStatus)}>
+                    <Badge tone={statusBadgeTone(m.questionnaireStatus)}>
+                      {questionnaireBadgeLabel(m.questionnaireStatus)}
+                    </Badge>
+                  </Link>
+                  <Link to={`/student/diagnostics/${m.group.id}/test`}>
+                    <Badge tone={statusBadgeTone(m.startDiagnosticStatus)}>
                       {diagnosticBadgeLabel(m.startDiagnosticStatus)}
                     </Badge>
                   </Link>

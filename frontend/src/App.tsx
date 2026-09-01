@@ -17,6 +17,7 @@ import { StudentHome } from "./pages/student/StudentHome";
 import { StudentProfilePage } from "./pages/student/StudentProfilePage";
 import { DiagnosticsHubPage } from "./pages/student/diagnostics/DiagnosticsHubPage";
 import { QuestionnaireWizardPage } from "./pages/student/diagnostics/QuestionnaireWizardPage";
+import { DiagnosticWizardPage } from "./pages/student/diagnostics/DiagnosticWizardPage";
 import { InDevelopment } from "./components/InDevelopment";
 
 export default function App() {
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="profile" element={<StudentProfilePage />} />
             <Route path="diagnostics" element={<DiagnosticsHubPage />} />
             <Route path="diagnostics/:groupId" element={<QuestionnaireWizardPage />} />
+            <Route path="diagnostics/:groupId/test" element={<DiagnosticWizardPage />} />
             <Route path="goals" element={<InDevelopment title="Мои цели" />} />
             <Route path="achievements" element={<InDevelopment title="Мои достижения" />} />
             <Route path="credit" element={<InDevelopment title="Мой зачёт" />} />

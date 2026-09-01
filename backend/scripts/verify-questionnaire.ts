@@ -230,7 +230,7 @@ async function main() {
   console.log("\nСтатус анкетирования в /api/student/groups стал реальным");
   const groupsList = await request("/api/student/groups", { jar: main1.studentJar });
   const entry = groupsList.body.find((g: any) => g.group.id === main1.group.id);
-  check("startDiagnosticStatus = COMPLETED в списке групп студента", entry?.startDiagnosticStatus === "COMPLETED", entry);
+  check("questionnaireStatus = COMPLETED в списке групп студента", entry?.questionnaireStatus === "COMPLETED", entry);
 
   console.log("\nВетвление 1: «практически нигде» -> Q10 не обязателен для завершения");
   const branch1 = await setupTeacherStudentGroup(stamp, "branch1");

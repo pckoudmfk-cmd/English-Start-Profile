@@ -154,28 +154,42 @@ router.get("/", async (req, res) => {
     orderBy: { joinedAt: "desc" },
   });
 
-  // На Этапе 3 статус анкетирования был всегда "не пройдена" (заглушка
-  // с честной формулировкой — самой анкеты ещё не существовало). С
-  // Этапа 4 статус реальный: смотрим последнюю попытку START для
-  // каждой группы. По одному запросу на все группы студента, не N+1.
-  const attempts = await prisma.questionnaireAttempt.findMany({
-    where: { studentId: req.user!.id, kind: "START", groupId: { in: memberships.map((m) => m.groupId) } },
-    orderBy: { createdAt: "desc" },
-  });
-  const attemptByGroup = new Map<string, (typeof attempts)[number]>();
-  for (const a of attempts) {
-    if (!attemptByGroup.has(a.groupId)) attemptByGroup.set(a.groupId, a); // первая = самая свежая (desc)
+  // Статус анкетирования (Этап 4) и статус объективной диагностики
+  // (Этап 5) — два разных модуля с разными данными, не смешиваем их,
+  // но оба удобно отдать одним списком групп, чтобы хаб не делал
+  // отдельный запрос на каждый. По одному запросу на каждый модуль на
+  // все группы студента сразу, не N+1.
+  const [questionnaireAttempts, diagnosticAttempts] = await Promise.all([
+    prisma.questionnaireAttempt.findMany({
+      where: { studentId: req.user!.id, kind: "START", groupId: { in: memberships.map((m) => m.groupId) } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.diagnosticAttempt.findMany({
+      where: { studentId: req.user!.id, kind: "START", groupId: { in: memberships.map((m) => m.groupId) } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+  const questionnaireByGroup = new Map<string, (typeof questionnaireAttempts)[number]>();
+  for (const a of questionnaireAttempts) {
+    if (!questionnaireByGroup.has(a.groupId)) questionnaireByGroup.set(a.groupId, a); // первая = самая свежая (desc)
+  }
+  const diagnosticByGroup = new Map<string, (typeof diagnosticAttempts)[number]>();
+  for (const a of diagnosticAttempts) {
+    if (!diagnosticByGroup.has(a.groupId)) diagnosticByGroup.set(a.groupId, a);
   }
 
   return res.json(
     memberships.map((m) => {
-      const attempt = attemptByGroup.get(m.groupId);
+      const questionnaireAttempt = questionnaireByGroup.get(m.groupId);
+      const diagnosticAttempt = diagnosticByGroup.get(m.groupId);
       return {
         id: m.id,
         joinedAt: m.joinedAt,
         group: serializeGroupPreview(m.group),
-        startDiagnosticStatus: (attempt?.status ?? "NOT_STARTED") as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
-        startDiagnosticAttemptId: attempt?.id ?? null,
+        questionnaireStatus: (questionnaireAttempt?.status ?? "NOT_STARTED") as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
+        questionnaireAttemptId: questionnaireAttempt?.id ?? null,
+        startDiagnosticStatus: (diagnosticAttempt?.status ?? "NOT_STARTED") as "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED",
+        startDiagnosticAttemptId: diagnosticAttempt?.id ?? null,
       };
     })
   );

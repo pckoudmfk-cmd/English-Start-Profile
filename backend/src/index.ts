@@ -10,6 +10,7 @@ import coursesRouter from "./routes/courses";
 import groupsRouter from "./routes/groups";
 import studentGroupsRouter from "./routes/studentGroups";
 import studentQuestionnaireRouter from "./routes/studentQuestionnaire";
+import studentDiagnosticRouter from "./routes/studentDiagnostic";
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use("/api/teacher", teacherRouter);
 // "/profile"), чтобы не проходить через его middleware вхолостую.
 app.use("/api/student/groups", studentGroupsRouter);
 app.use("/api/student/questionnaire", studentQuestionnaireRouter);
+app.use("/api/student/diagnostic", studentDiagnosticRouter);
 app.use("/api/student", studentRouter);
 
 // Единый обработчик 404 для несуществующих API-маршрутов.

@@ -21,11 +21,17 @@ export interface JoinResponse {
   membership?: { id: string; joinedAt: string };
 }
 
+export type AttemptStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+
 export interface StudentGroupMembership {
   id: string;
   joinedAt: string;
   group: GroupPreview;
-  startDiagnosticStatus: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  // Анкетирование (Этап 4) и объективная диагностика (Этап 5) — два
+  // разных модуля с разными данными, статусы не смешиваются.
+  questionnaireStatus: AttemptStatus;
+  questionnaireAttemptId: string | null;
+  startDiagnosticStatus: AttemptStatus;
   startDiagnosticAttemptId: string | null;
 }
 

@@ -7,8 +7,9 @@
 Разработка ведётся поэтапно. Отчёты по этапам —
 [`docs/STAGE_1_REPORT.md`](docs/STAGE_1_REPORT.md),
 [`docs/STAGE_2_REPORT.md`](docs/STAGE_2_REPORT.md),
-[`docs/STAGE_3_REPORT.md`](docs/STAGE_3_REPORT.md) и
-[`docs/STAGE_4_REPORT.md`](docs/STAGE_4_REPORT.md).
+[`docs/STAGE_3_REPORT.md`](docs/STAGE_3_REPORT.md),
+[`docs/STAGE_4_REPORT.md`](docs/STAGE_4_REPORT.md) и
+[`docs/STAGE_5_REPORT.md`](docs/STAGE_5_REPORT.md).
 
 ## Реализовано
 
@@ -35,9 +36,7 @@
 - присоединение по коду: превью группы (название, курс, учебный год,
   преподаватель) перед подтверждением;
 - понятные раздельные ошибки — код не найден, отключён, просрочен;
-- повторное подключение не создаёт дубликат membership;
-- статус «Стартовая диагностика: не пройдена» на карточке группы
-  студента.
+- повторное подключение не создаёт дубликат membership.
 
 **Этап 4 — START PROFILE (анкетирование, Q1–Q45):**
 
@@ -49,8 +48,20 @@
   индексы не считаются и студенту не показываются — только короткое
   «Анкетирование завершено.».
 
-Языковой тест (Grammar/Vocabulary/Reading/…), Progress Check и Credit
-Test — не реализованы, следующие этапы.
+**Этап 5 — START DIAGNOSTIC (объективная проверка навыков):**
+
+- отдельный от анкетирования модуль: Grammar, Vocabulary, Reading,
+  Listening (32 задания), свои модели/маршруты/экраны;
+- банк заданий хранится в коде backend — правильные ответы
+  структурно не могут утечь клиенту;
+- Listening — через Web Speech API (озвучка в браузере, без внешней
+  инфраструктуры аудио);
+- результат — числовой профиль по навыкам, без выдуманного
+  CEFR-уровня (`diagnosticRange` остаётся `null` до утверждения
+  матрицы порогов).
+
+Writing/Speaking, Progress Check и Credit Test — не реализованы,
+следующие этапы.
 
 ## Технологический стек
 
@@ -142,6 +153,19 @@ npm run verify:questionnaire
 вопросов, ветвление, неизменяемость завершённой анкеты и изоляцию
 между студентами (см.
 [`backend/scripts/verify-questionnaire.ts`](backend/scripts/verify-questionnaire.ts)).
+
+### Проверка объективной диагностики (Этап 5)
+
+```bash
+cd backend
+npm run verify:diagnostic
+```
+
+Проверяет, что банк заданий отдаётся без правильных ответов, что
+ответы засчитываются верно с русским feedback, что результат содержит
+числовой профиль по навыкам без выдуманного CEFR-уровня, и изоляцию
+между студентами (см.
+[`backend/scripts/verify-diagnostic.ts`](backend/scripts/verify-diagnostic.ts)).
 
 ## Переменные окружения
 

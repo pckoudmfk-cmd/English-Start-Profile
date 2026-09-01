@@ -36,6 +36,7 @@ model User {
 
   groupMemberships GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
+  diagnosticAttempts    DiagnosticAttempt[]
 
   @@index([role])
 }
@@ -130,6 +131,7 @@ model Group {
   joinCodes   GroupJoinCode[]
   memberships           GroupMembership[]
   questionnaireAttempts QuestionnaireAttempt[]
+  diagnosticAttempts    DiagnosticAttempt[]
 
   @@index([teacherId])
   @@index([courseId])
@@ -256,4 +258,95 @@ model QuestionnaireAnswer {
 
   @@unique([attemptId, questionCode])
   @@index([attemptId])
+}
+
+// ---------------------------------------------------------------------
+// Этап 5: START DIAGNOSTIC — объективная проверка языковых навыков.
+// Отдельный модуль от анкетирования (свои модели, свои маршруты, свой
+// экран) — не смешивается с QuestionnaireAttempt/QuestionnaireAnswer
+// ни на уровне данных, ни на уровне UI.
+//
+// Банк заданий (вопросы, варианты, правильный ответ) — НЕ в БД, а в
+// backend/src/diagnostic/itemBank.ts (по аналогии с анкетой в
+// questionnaire/definition.ts): это статичный, курируемый контент без
+// интерфейса редактирования, и, что важнее, правильные ответы не
+// должны быть доступны клиенту — если бы банк заданий лежал в БД и
+// отдавался вместе с попыткой, пришлось бы отдельно следить, чтобы
+// correct-поле никогда не утекло в ответ API. Храня его в коде
+// backend, "отдать вопрос без ответа" — это просто выбор, какие поля
+// сериализовать, а не постоянная угроза случайной утечки.
+// ---------------------------------------------------------------------
+
+model DiagnosticAttempt {
+  id             String    @id @default(uuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String
+  group          Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String
+  academicYearId String
+  kind           String    @default("START") // START | PROGRESS | CREDIT (сейчас используется только START)
+  status         String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  answers DiagnosticAnswer[]
+  result  DiagnosticResult?
+
+  // Тот же урок, что и у QuestionnaireAttempt (см. комментарий там) —
+  // защита от гонки при "найти-или-создать" на уровне БД, а не только
+  // в коде обработчика.
+  @@unique([studentId, groupId, kind])
+  @@index([studentId])
+  @@index([groupId])
+}
+
+// Один ответ на одно задание. itemId — идентификатор из статичного
+// банка заданий (backend/src/diagnostic/itemBank.ts), не foreign key
+// на таблицу БД — банк заданий не хранится в БД (см. комментарий выше).
+// skill — снимок на момент ответа, по той же причине, что и
+// indexGroup у QuestionnaireAnswer: если задание когда-нибудь
+// переклассифицируют, исторический ответ не должен менять категорию
+// задним числом.
+model DiagnosticAnswer {
+  id                 String   @id @default(uuid())
+  attemptId          String
+  attempt            DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  itemId             String
+  skill              String   // GRAMMAR | VOCABULARY | READING | LISTENING
+  selectedOptionIndex Int
+  correct            Boolean
+  answeredAt         DateTime @default(now())
+
+  @@unique([attemptId, itemId])
+  @@index([attemptId])
+}
+
+// Результат попытки — считается один раз при завершении
+// (POST .../complete) и больше не пересчитывается (та же логика
+// неизменяемости, что у завершённой QuestionnaireAttempt).
+//
+// skillBreakdownJson — [{skill, correct, total, percentage}] по
+// каждому из реализованных навыков (Grammar/Vocabulary/Reading/
+// Listening — Writing/Speaking пока не реализованы и в разбивке не
+// участвуют).
+//
+// diagnosticRange — строго nullable и НИЧЕМ не заполняется на этом
+// этапе: ТЗ прямо запрещает превращать процент в A1/A2/B1/B2 без
+// утверждённой матрицы порогов. Поле существует в модели, потому что
+// оно есть в требовании к архитектуре результата, но остаётся пустым,
+// пока такая матрица не появится и не будет явно подтверждена — это
+// осознанное решение, а не недоделанная часть.
+model DiagnosticResult {
+  id                 String   @id @default(uuid())
+  attemptId          String   @unique
+  attempt            DiagnosticAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  overallCorrect     Int
+  overallTotal       Int
+  overallPercentage  Float
+  skillBreakdownJson String
+  diagnosticRange    String?
+  computedAt         DateTime @default(now())
 }

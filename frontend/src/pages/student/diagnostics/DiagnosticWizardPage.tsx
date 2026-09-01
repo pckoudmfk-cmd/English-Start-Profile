@@ -1,0 +1,394 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ApiError } from "../../../api/client";
+import {
+  diagnosticApi,
+  type AnswerFeedback,
+  type DiagnosticAttemptResponse,
+  type DiagnosticPassage,
+  type DiagnosticResultResponse,
+  type PublicDiagnosticItem,
+  type Skill,
+} from "../../../api/diagnostic";
+import { Card, ErrorAlert, PrimaryButton, SecondaryButton } from "../../../components/ui";
+
+const SKILL_LABELS: Record<Skill, string> = {
+  GRAMMAR: "Грамматика",
+  VOCABULARY: "Лексика",
+  READING: "Чтение",
+  LISTENING: "Аудирование",
+};
+
+interface FlatItem extends PublicDiagnosticItem {
+  blockIndex: number;
+  blockTitleRu: string;
+  blockInstructionRu: string;
+  indexInBlock: number;
+}
+
+type Step = "intro" | { kind: "block-intro"; blockIndex: number } | { kind: "item"; flatIndex: number } | "ready-to-finish" | "completed";
+
+export function DiagnosticWizardPage() {
+  const { groupId } = useParams<{ groupId: string }>();
+  const navigate = useNavigate();
+
+  const [attempt, setAttempt] = useState<DiagnosticAttemptResponse | null>(null);
+  const [answers, setAnswers] = useState<Record<string, { selectedOptionIndex: number; correct: boolean }>>({});
+  const [step, setStep] = useState<Step>("intro");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [result, setResult] = useState<DiagnosticResultResponse | null>(null);
+
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<AnswerFeedback | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!groupId) return;
+    setLoading(true);
+    diagnosticApi
+      .startOrResume(groupId)
+      .then((res) => {
+        setAttempt(res);
+        setAnswers(res.answers);
+        if (res.status === "COMPLETED") {
+          setStep("completed");
+          diagnosticApi.getResult(res.id).then(setResult).catch(() => {});
+        } else if (Object.keys(res.answers).length > 0) {
+          setStep(computeResumeStep(res));
+        } else {
+          setStep("intro");
+        }
+      })
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Не удалось открыть диагностику."))
+      .finally(() => setLoading(false));
+  }, [groupId]);
+
+  const flatItems: FlatItem[] = useMemo(() => {
+    if (!attempt) return [];
+    return attempt.blocks.flatMap((block, blockIndex) =>
+      block.items.map((item, indexInBlock) => ({
+        ...item,
+        blockIndex,
+        blockTitleRu: block.titleRu,
+        blockInstructionRu: block.instructionRu,
+        indexInBlock,
+      }))
+    );
+  }, [attempt]);
+
+  const passagesById = useMemo(() => {
+    const map = new Map<string, DiagnosticPassage>();
+    attempt?.passages.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [attempt]);
+
+  function computeResumeStep(a: DiagnosticAttemptResponse): Step {
+    const flat = a.blocks.flatMap((block, blockIndex) =>
+      block.items.map((item, indexInBlock) => ({ ...item, blockIndex, indexInBlock }))
+    );
+    const firstUnansweredIndex = flat.findIndex((i) => !(i.id in a.answers));
+    if (firstUnansweredIndex === -1) return "ready-to-finish";
+    const item = flat[firstUnansweredIndex];
+    const blockStarted = flat.some((i) => i.blockIndex === item.blockIndex && i.id in a.answers);
+    if (!blockStarted) return { kind: "block-intro", blockIndex: item.blockIndex };
+    return { kind: "item", flatIndex: firstUnansweredIndex };
+  }
+
+  function startFirstBlock() {
+    setStep({ kind: "block-intro", blockIndex: 0 });
+  }
+
+  function enterBlock(blockIndex: number) {
+    const flatIndex = flatItems.findIndex((i) => i.blockIndex === blockIndex);
+    setStep({ kind: "item", flatIndex });
+    setSelectedOption(null);
+    setFeedback(null);
+  }
+
+  async function handleSubmitAnswer(item: FlatItem) {
+    if (!attempt || selectedOption === null) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await diagnosticApi.answerItem(attempt.id, item.id, selectedOption);
+      setFeedback(res);
+      setAnswers((prev) => ({ ...prev, [item.id]: { selectedOptionIndex: selectedOption, correct: res.correct } }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Не удалось отправить ответ.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function goToNext(currentFlatIndex: number) {
+    setSelectedOption(null);
+    setFeedback(null);
+    const next = currentFlatIndex + 1;
+    if (next >= flatItems.length) {
+      setStep("ready-to-finish");
+      return;
+    }
+    const nextItem = flatItems[next];
+    const currentItem = flatItems[currentFlatIndex];
+    if (nextItem.blockIndex !== currentItem.blockIndex) {
+      setStep({ kind: "block-intro", blockIndex: nextItem.blockIndex });
+    } else {
+      setStep({ kind: "item", flatIndex: next });
+    }
+  }
+
+  async function handleFinish() {
+    if (!attempt) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await diagnosticApi.complete(attempt.id);
+      setResult(res);
+      setStep("completed");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Не удалось завершить диагностику.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-500">Загрузка…</p>
+      </Card>
+    );
+  }
+
+  if (loadError || !attempt) {
+    return (
+      <Card>
+        <ErrorAlert>{loadError ?? "Диагностика не найдена."}</ErrorAlert>
+        <Link to="/student/diagnostics" className="text-sm font-medium text-brand-600 hover:underline">
+          ← К списку групп
+        </Link>
+      </Card>
+    );
+  }
+
+  if (step === "intro") {
+    return (
+      <Card className="mx-auto max-w-xl">
+        <h1 className="mb-3 text-xl font-semibold text-slate-900">Стартовая диагностика</h1>
+        <p className="mb-3 text-sm text-slate-600">
+          Это объективная проверка ваших навыков английского языка: грамматика, лексика, чтение и
+          аудирование. Языковой материал — на английском, инструкции и обратная связь — на русском.
+        </p>
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Это не официальный экзамен и не сертификация CEFR. Результат формирует предварительный
+          диагностический профиль для планирования обучения.
+        </div>
+        <PrimaryButton type="button" onClick={startFirstBlock}>
+          Начать диагностику
+        </PrimaryButton>
+      </Card>
+    );
+  }
+
+  if (step === "completed") {
+    return (
+      <Card className="mx-auto max-w-xl">
+        <div className="mb-3 text-4xl">✅</div>
+        <h1 className="mb-2 text-xl font-semibold text-slate-900">Диагностика завершена.</h1>
+        {!result ? (
+          <p className="text-sm text-slate-500">Загрузка результата…</p>
+        ) : (
+          <DiagnosticResultView result={result} />
+        )}
+        <SecondaryButton type="button" className="mt-6" onClick={() => navigate("/student/diagnostics")}>
+          Вернуться к диагностике
+        </SecondaryButton>
+      </Card>
+    );
+  }
+
+  if (step === "ready-to-finish") {
+    return (
+      <Card className="mx-auto max-w-xl">
+        <h1 className="mb-3 text-xl font-semibold text-slate-900">Все задания выполнены</h1>
+        <p className="mb-4 text-sm text-slate-600">
+          Вы ответили на все {attempt.totalItems} заданий. Нажмите «Завершить диагностику», чтобы
+          сохранить результат.
+        </p>
+        <ErrorAlert>{error}</ErrorAlert>
+        <PrimaryButton type="button" onClick={handleFinish} disabled={submitting}>
+          {submitting ? "Завершаем…" : "Завершить диагностику"}
+        </PrimaryButton>
+      </Card>
+    );
+  }
+
+  if (typeof step === "object" && step.kind === "block-intro") {
+    const block = attempt.blocks[step.blockIndex];
+    return (
+      <Card className="mx-auto max-w-xl">
+        <div className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+          Раздел {step.blockIndex + 1} из {attempt.blocks.length}
+        </div>
+        <h1 className="mb-3 text-xl font-semibold text-slate-900">{block.titleRu}</h1>
+        <p className="mb-6 text-sm text-slate-600">{block.instructionRu}</p>
+        <PrimaryButton type="button" onClick={() => enterBlock(step.blockIndex)}>
+          Начать раздел «{block.titleRu}»
+        </PrimaryButton>
+      </Card>
+    );
+  }
+
+  if (typeof step === "object" && step.kind === "item") {
+    const item = flatItems[step.flatIndex];
+    const passage = item.passageId ? passagesById.get(item.passageId) : undefined;
+    const answered = feedback !== null;
+    // answers уже включает текущий ответ к моменту показа feedback
+    // (setAnswers вызывается в handleSubmitAnswer до setFeedback).
+    const answeredCount = Object.keys(answers).length;
+
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-4 flex items-center justify-between text-xs font-medium text-slate-500">
+          <span>{SKILL_LABELS[item.skill]}</span>
+          <span>
+            Вопрос {item.indexInBlock + 1} из {attempt.blocks[item.blockIndex].items.length} · {answeredCount}/
+            {attempt.totalItems} всего
+          </span>
+        </div>
+
+        <Card>
+          {passage && <PassagePanel passage={passage} />}
+
+          <p className="mb-4 text-base font-medium text-slate-800">{item.promptEn}</p>
+
+          <div className="space-y-2">
+            {item.optionsEn.map((opt, idx) => {
+              const isSelected = selectedOption === idx;
+              const isCorrectOption = answered && feedback?.correctOptionIndex === idx;
+              const isWrongSelected = answered && isSelected && !feedback?.correct;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  data-option-index={idx}
+                  disabled={answered}
+                  onClick={() => setSelectedOption(idx)}
+                  className={`block w-full rounded-lg border px-4 py-3 text-left text-sm transition ${
+                    isCorrectOption
+                      ? "border-brand-500 bg-brand-50 text-brand-800"
+                      : isWrongSelected
+                        ? "border-red-300 bg-red-50 text-red-700"
+                        : isSelected
+                          ? "border-brand-500 bg-brand-50 text-brand-800"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  } ${answered ? "cursor-default" : "cursor-pointer"}`}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+
+          {feedback && (
+            <div
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+                feedback.correct ? "border-brand-200 bg-brand-50 text-brand-800" : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {feedback.feedbackRu}
+            </div>
+          )}
+
+          <ErrorAlert>{error}</ErrorAlert>
+
+          <div className="mt-6">
+            {!answered ? (
+              <PrimaryButton
+                type="button"
+                onClick={() => handleSubmitAnswer(item)}
+                disabled={selectedOption === null || submitting}
+              >
+                {submitting ? "Проверяем…" : "Ответить"}
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton type="button" onClick={() => goToNext(step.flatIndex)}>
+                Далее
+              </PrimaryButton>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function PassagePanel({ passage }: { passage: DiagnosticPassage }) {
+  function play() {
+    try {
+      const utterance = new SpeechSynthesisUtterance(passage.contentEn);
+      utterance.lang = "en-US";
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Web Speech API недоступен (например, в некоторых браузерах на
+      // мобильных устройствах) — молча игнорируем, текст всё равно
+      // доступен для чтения ниже, если он показан (Reading).
+    }
+  }
+
+  if (passage.skill === "LISTENING") {
+    return (
+      <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="mb-2 text-xs font-medium text-slate-500">{passage.titleRu}</div>
+        <SecondaryButton type="button" onClick={play}>
+          🔊 Прослушать
+        </SecondaryButton>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="mb-2 text-xs font-medium text-slate-500">{passage.titleRu}</div>
+      <p className="text-sm leading-relaxed text-slate-700">{passage.contentEn}</p>
+    </div>
+  );
+}
+
+function DiagnosticResultView({ result }: { result: DiagnosticResultResponse }) {
+  return (
+    <div>
+      <p className="mb-4 text-sm text-slate-600">
+        Общий результат: <strong>{result.overallCorrect}</strong> из{" "}
+        <strong>{result.overallTotal}</strong> ({result.overallPercentage}%).
+      </p>
+
+      <div className="mb-4 space-y-2">
+        {result.skillBreakdown.map((s) => (
+          <div key={s.skill}>
+            <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+              <span>{SKILL_LABELS[s.skill]}</span>
+              <span>
+                {s.correct}/{s.total} · {s.percentage}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${s.percentage}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+        Это предварительный числовой профиль по навыкам, а не официальный уровень CEFR. Диагностический
+        диапазон (A1–B2) будет определяться только после утверждения шкалы соответствия — пока это
+        не сделано, система не присваивает уровень.
+      </div>
+    </div>
+  );
+}
