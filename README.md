@@ -18,9 +18,12 @@
 [`docs/STAGE_11_QA_REPORT.md`](docs/STAGE_11_QA_REPORT.md) (финальный
 QA-аудит), [`docs/STAGE_12_REPORT.md`](docs/STAGE_12_REPORT.md)
 (стабилизация — приложение готово к ручному пользовательскому
-тестированию) и [`docs/STAGE_13_PILOT_TEST_REPORT.md`](docs/STAGE_13_PILOT_TEST_REPORT.md)
+тестированию), [`docs/STAGE_13_PILOT_TEST_REPORT.md`](docs/STAGE_13_PILOT_TEST_REPORT.md)
 (подготовка к пилотному тестированию — постоянный набор тестовых
-аккаунтов и сценариев).
+аккаунтов и сценариев) и
+[`docs/STAGE_14_PRODUCTION_READINESS_REPORT.md`](docs/STAGE_14_PRODUCTION_READINESS_REPORT.md)
+(подготовка к публикации — **READY WITH LIMITATIONS**, полный
+production-readiness чек-лист).
 
 ## Реализовано
 
