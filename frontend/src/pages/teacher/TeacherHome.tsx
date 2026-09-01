@@ -421,16 +421,30 @@ function OpportunityBlock({ entries, groupId }: { entries: { studentId: string; 
   );
 }
 
-// --- «Прогресс» (Progress Check) — честное пустое состояние (ТЗ п.10) --
+// --- «Прогресс» (Промежуточная диагностика, Этап 10) --------------------
 
 function ProgressBlock({ progress }: { progress: DashboardResponse["progress"] }) {
   return (
     <Card>
       <h3 className="mb-3 text-sm font-semibold text-slate-700">Прогресс</h3>
-      <EmptyState
-        title="Промежуточная диагностика ещё не проводилась."
-        hint={`Рекомендуемый срок: через ${progress.recommendedAfterMonths[0]}–${progress.recommendedAfterMonths[1]} месяцев после стартовой диагностики.`}
-      />
+      {progress.status === "NOT_CONDUCTED" ? (
+        <EmptyState
+          title="Промежуточная диагностика ещё не проводилась."
+          hint={`Рекомендуемый срок: через ${progress.recommendedAfterMonths[0]}–${progress.recommendedAfterMonths[1]} месяцев после стартовой диагностики.`}
+        />
+      ) : (
+        <div className="text-sm text-slate-700">
+          <p>
+            Назначена: <span className="font-medium">{progress.assignedCount}</span> из {progress.total}
+          </p>
+          <p className="mt-1">
+            Завершена: <span className="font-medium">{progress.completedCount}</span> из {progress.total}
+          </p>
+        </div>
+      )}
+      <Link to="/teacher/diagnostics" className="mt-3 block text-xs font-medium text-brand-600 hover:underline">
+        Открыть «Диагностика» →
+      </Link>
     </Card>
   );
 }

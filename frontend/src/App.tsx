@@ -32,6 +32,12 @@ import { TeacherCreditDictionaryPage } from "./pages/teacher/credit/TeacherCredi
 import { TeacherCreditDictionaryDetailPage } from "./pages/teacher/credit/TeacherCreditDictionaryDetailPage";
 import { TeacherCreditTestBankPage } from "./pages/teacher/credit/TeacherCreditTestBankPage";
 import { TeacherCreditStudentDetailPage } from "./pages/teacher/credit/TeacherCreditStudentDetailPage";
+import { ProgressCheckHubPage } from "./pages/student/progress/ProgressCheckHubPage";
+import { StudentProgressCheckPage } from "./pages/student/progress/StudentProgressCheckPage";
+import { ProgressQuestionnaireWizardPage } from "./pages/student/progress/ProgressQuestionnaireWizardPage";
+import { ProgressTestWizardPage } from "./pages/student/progress/ProgressTestWizardPage";
+import { TeacherProgressCheckPage } from "./pages/teacher/progress/TeacherProgressCheckPage";
+import { TeacherProgressComparisonPage } from "./pages/teacher/progress/TeacherProgressComparisonPage";
 import { InDevelopment } from "./components/InDevelopment";
 
 export default function App() {
@@ -54,7 +60,8 @@ export default function App() {
             <Route path="groups/:id" element={<GroupDetailPage />} />
             <Route path="groups/:groupId/students/:studentId" element={<TeacherStudentProfilePage />} />
             <Route path="students" element={<InDevelopment title="Студенты" />} />
-            <Route path="diagnostics" element={<InDevelopment title="Диагностика" />} />
+            <Route path="diagnostics" element={<TeacherProgressCheckPage />} />
+            <Route path="diagnostics/groups/:groupId/students/:studentId" element={<TeacherProgressComparisonPage />} />
             <Route path="achievements" element={<TeacherAchievementsReviewPage />} />
             <Route path="achievements/:id" element={<TeacherAchievementDetailPage />} />
             <Route path="credit" element={<TeacherCreditDashboardPage />} />
@@ -82,7 +89,10 @@ export default function App() {
             <Route path="credit" element={<CreditHubPage />} />
             <Route path="credit/:groupId" element={<StudentCreditPage />} />
             <Route path="credit/:groupId/test/:attemptId" element={<CreditTestWizardPage />} />
-            <Route path="progress" element={<InDevelopment title="Мой прогресс" />} />
+            <Route path="progress" element={<ProgressCheckHubPage />} />
+            <Route path="progress/:groupId" element={<StudentProgressCheckPage />} />
+            <Route path="progress/:groupId/questionnaire" element={<ProgressQuestionnaireWizardPage />} />
+            <Route path="progress/:groupId/test" element={<ProgressTestWizardPage />} />
           </Route>
         </Route>
 

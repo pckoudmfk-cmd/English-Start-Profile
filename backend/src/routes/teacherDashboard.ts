@@ -14,6 +14,7 @@
 // только на странице профиля студента (routes/teacherStudentProfile.ts),
 // и то не одним запросом, а по вкладкам.
 import { Router } from "express";
+import { prisma } from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import {
   computeDevelopmentArea,
@@ -39,12 +40,15 @@ router.get("/:id/dashboard", async (req, res) => {
 
   const roster = await loadRoster(group.id);
   const metrics = await buildMetricsForRoster(group.id, roster);
-  const [achievementsSummary, pointsByStudent, creditGroup] = await Promise.all([
+  const [achievementsSummary, pointsByStudent, creditGroup, progressAssignedCount, progressCompletedCount] = await Promise.all([
     getGroupAchievementsSummary(group.id),
     getGroupQualificationPointsByStudent(group.id, roster.map((r) => r.studentId)),
     // Этап 9: реальные данные модуля «Зачёт» — единая функция расчёта
     // (analytics/credit.ts), не дублируется здесь.
     getGroupCreditSummary(group.id, roster.map((r) => r.studentId)),
+    // Этап 10: Промежуточная диагностика — сколько назначено/завершено.
+    prisma.diagnosticAttempt.count({ where: { groupId: group.id, kind: "PROGRESS" } }),
+    prisma.diagnosticAttempt.count({ where: { groupId: group.id, kind: "PROGRESS", status: "COMPLETED" } }),
   ]);
 
   const diagnosticCompleted = metrics.filter((m) => m.diagnosticStatus === "COMPLETED");
@@ -130,13 +134,16 @@ router.get("/:id/dashboard", async (req, res) => {
     },
     attention,
     opportunities,
+    // Этап 10: реальные числа — сколько студентов группы уже назначено
+    // на Промежуточную диагностику и сколько её завершили. "Ещё не
+    // проводилась" честно остаётся только пока в группе действительно
+    // никому не назначено ни одной попытки.
     progress: {
-      // Progress Check как модуль не реализован ни на одном из этапов —
-      // единственно честный ответ здесь дословно повторяет текст ТЗ
-      // (Этап 6, п.10) для случая "ещё не проводилась", а не выдуманную
-      // дату или прогресс.
-      status: "NOT_CONDUCTED" as const,
+      status: progressAssignedCount > 0 ? ("CONDUCTED" as const) : ("NOT_CONDUCTED" as const),
       recommendedAfterMonths: [5, 6] as const,
+      assignedCount: progressAssignedCount,
+      completedCount: progressCompletedCount,
+      total: roster.length,
     },
     credit: {
       // "Прогресс по зачёту" (детальный блок) — все 4 подпункта теперь

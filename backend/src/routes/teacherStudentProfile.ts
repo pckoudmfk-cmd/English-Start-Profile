@@ -353,10 +353,16 @@ router.get("/:id/students/:studentId/questionnaire", async (req, res) => {
 // GET /:id/students/:studentId/diagnostic — вкладка «Диагностика»
 // (полная история: Start/Progress/Final + таблица навыков).
 // ---------------------------------------------------------------------
+// Русскоязычные подписи (ТЗ — "интерфейс полностью на русском"; см.
+// docs/STAGE_10_REPORT.md — до Этапа 10 здесь ошибочно оставались
+// английские технические названия, которые НИКОГДА не были видны
+// реальному пользователю (kind="PROGRESS"/"CREDIT" не существовали в
+// БД). Этап 10 сделал "PROGRESS" реально достижимым — исправлено сразу
+// для всех трёх, а не только для нового.
 const DIAGNOSTIC_KIND_LABELS: Record<string, string> = {
-  START: "Start Diagnostic",
-  PROGRESS: "Progress Check",
-  CREDIT: "Final Diagnostic",
+  START: "Стартовая диагностика",
+  PROGRESS: "Промежуточная диагностика",
+  CREDIT: "Итоговая диагностика",
 };
 const ALL_SKILLS_RU: Record<string, string> = {
   GRAMMAR: "Грамматика",

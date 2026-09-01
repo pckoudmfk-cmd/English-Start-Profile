@@ -17,6 +17,8 @@ import studentDiagnosticRouter from "./routes/studentDiagnostic";
 import studentAchievementsRouter from "./routes/studentAchievements";
 import studentCreditRouter from "./routes/studentCredit";
 import teacherCreditRouter from "./routes/teacherCredit";
+import studentProgressCheckRouter from "./routes/studentProgressCheck";
+import teacherProgressCheckRouter from "./routes/teacherProgressCheck";
 
 const app = express();
 
@@ -59,6 +61,9 @@ app.use("/api/teacher/achievements", teacherAchievementsRouter);
 // части маршрутов групповой контекст, у части — курс/банк заданий,
 // общего с groupsRouter/teacherDashboardRouter пересечения путей нет).
 app.use("/api/teacher/credit", teacherCreditRouter);
+// Этап 10: «Промежуточная диагностика» — отдельный префикс, тот же
+// принцип, что и у «Зачёта» выше.
+app.use("/api/teacher/progress-check", teacherProgressCheckRouter);
 app.use("/api/teacher", teacherRouter);
 // Аналогично /api/teacher/* выше: /api/student/groups регистрируется до
 // общего studentRouter (у которого есть перехватывающий router.use на
@@ -68,6 +73,7 @@ app.use("/api/student/questionnaire", studentQuestionnaireRouter);
 app.use("/api/student/diagnostic", studentDiagnosticRouter);
 app.use("/api/student/achievements", studentAchievementsRouter);
 app.use("/api/student/credit", studentCreditRouter);
+app.use("/api/student/progress-check", studentProgressCheckRouter);
 app.use("/api/student", studentRouter);
 
 // Единый обработчик 404 для несуществующих API-маршрутов.

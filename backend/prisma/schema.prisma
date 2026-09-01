@@ -35,8 +35,8 @@ model User {
   groups        Group[]
 
   groupMemberships      GroupMembership[]
-  questionnaireAttempts QuestionnaireAttempt[]
-  diagnosticAttempts    DiagnosticAttempt[]
+  questionnaireAttempts QuestionnaireAttempt[] @relation("QuestionnaireAttemptStudent")
+  diagnosticAttempts    DiagnosticAttempt[]    @relation("DiagnosticAttemptStudent")
   teacherNotesAuthored  TeacherNote[]          @relation("TeacherNoteAuthor")
   teacherNotesAboutMe   TeacherNote[]          @relation("TeacherNoteStudent")
   goalStatusesAuthored  StudentGoalStatus[]    @relation("GoalStatusAuthor")
@@ -54,6 +54,11 @@ model User {
   oralAssessmentsAsStudent      OralAssessment[]       @relation("OralAssessmentStudent")
   oralAssessmentsAssigned       OralAssessment[]       @relation("OralAssessmentAssignedBy")
   oralAssessmentsGraded         OralAssessment[]       @relation("OralAssessmentGradedBy")
+
+  // Этап 10: ПРОМЕЖУТОЧНАЯ ДИАГНОСТИКА — кто из преподавателей назначил
+  // конкретную попытку (заполнено только для kind="PROGRESS").
+  questionnaireAttemptsAssigned QuestionnaireAttempt[] @relation("QuestionnaireAttemptAssignedBy")
+  diagnosticAttemptsAssigned    DiagnosticAttempt[]    @relation("DiagnosticAttemptAssignedBy")
 
   @@index([role])
 }
@@ -223,28 +228,43 @@ model GroupMembership {
 // course -> academicYear) — по требованию ТЗ и по уже устоявшемуся в
 // проекте принципу защиты в глубину (см. комментарий у AcademicYear/
 // Course/Group выше). kind зарезервирован под будущие Progress Check /
-// Credit Test (пока используется только "START", логика этих режимов
-// не реализована).
+// Credit Test — Этап 10 задействовал "PROGRESS" (см. ниже), "CREDIT"
+// по-прежнему дремлет (Этап 9 сознательно его не использует).
 //
 // Завершённая попытка (status = COMPLETED) неизменяема: маршрут
 // автосохранения ответа отклоняет запись, если попытка уже завершена
 // — "исторические ответы не перезаписывать" из ТЗ.
+//
+// Этап 10 (Промежуточная диагностика): assignedByTeacherId/assignedAt/
+// periodStartAt/periodEndAt — заполняются ТОЛЬКО для kind="PROGRESS",
+// когда попытку создаёт преподаватель (ТЗ: "запустить может только
+// преподаватель"), остаются null для kind="START" (студент создаёт её
+// сам). status получает дополнительное значение "ASSIGNED" — попытка
+// уже создана преподавателем, но студент её ещё не открывал (и не
+// может открыть до periodStartAt — "пройти её раньше назначенного
+// срока" запрещено ТЗ).
 // ---------------------------------------------------------------------
 
 model QuestionnaireAttempt {
   id             String    @id @default(uuid())
   studentId      String
-  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student        User      @relation("QuestionnaireAttemptStudent", fields: [studentId], references: [id], onDelete: Cascade)
   groupId        String
   group          Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   courseId       String
   academicYearId String
-  kind           String    @default("START") // START | PROGRESS | CREDIT (сейчас используется только START)
-  status         String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  kind           String    @default("START") // START | PROGRESS | CREDIT (CREDIT дремлет, см. комментарий выше)
+  status         String    @default("IN_PROGRESS") // ASSIGNED (только PROGRESS) | IN_PROGRESS | COMPLETED
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  assignedByTeacherId String?
+  assignedByTeacher   User?     @relation("QuestionnaireAttemptAssignedBy", fields: [assignedByTeacherId], references: [id])
+  assignedAt          DateTime?
+  periodStartAt       DateTime?
+  periodEndAt         DateTime?
 
   answers QuestionnaireAnswer[]
 
@@ -306,17 +326,26 @@ model QuestionnaireAnswer {
 model DiagnosticAttempt {
   id             String    @id @default(uuid())
   studentId      String
-  student        User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student        User      @relation("DiagnosticAttemptStudent", fields: [studentId], references: [id], onDelete: Cascade)
   groupId        String
   group          Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
   courseId       String
   academicYearId String
-  kind           String    @default("START") // START | PROGRESS | CREDIT (сейчас используется только START)
-  status         String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  kind           String    @default("START") // START | PROGRESS | CREDIT (CREDIT дремлет — см. комментарий у QuestionnaireAttempt)
+  status         String    @default("IN_PROGRESS") // ASSIGNED (только PROGRESS) | IN_PROGRESS | COMPLETED
   startedAt      DateTime  @default(now())
   completedAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  // Этап 10 — тот же приём назначения преподавателем, что и у
+  // QuestionnaireAttempt (см. комментарий там): заполняется только для
+  // kind="PROGRESS".
+  assignedByTeacherId String?
+  assignedByTeacher   User?     @relation("DiagnosticAttemptAssignedBy", fields: [assignedByTeacherId], references: [id])
+  assignedAt          DateTime?
+  periodStartAt       DateTime?
+  periodEndAt         DateTime?
 
   answers DiagnosticAnswer[]
   result  DiagnosticResult?

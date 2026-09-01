@@ -80,7 +80,9 @@ export interface DashboardResponse {
   };
   attention: AttentionEntry[];
   opportunities: OpportunityEntry[];
-  progress: { status: "NOT_CONDUCTED"; recommendedAfterMonths: [number, number] };
+  // Этап 10: реальные числа — сколько студентов назначено/завершило
+  // Промежуточную диагностику в этой группе.
+  progress: { status: "NOT_CONDUCTED" | "CONDUCTED"; recommendedAfterMonths: [number, number]; assignedCount: number; completedCount: number; total: number };
   credit: {
     // Этап 9: все 4 подпункта теперь реальны.
     vocabulary: { implemented: true; confirmedCount: number; underReviewCount: number; total: number };

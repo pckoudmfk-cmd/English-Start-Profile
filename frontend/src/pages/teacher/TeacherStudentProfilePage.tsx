@@ -157,7 +157,7 @@ export function TeacherStudentProfilePage() {
         {activeTab === "goals" && <GoalsTab overview={overview} onStatusChange={handleGoalStatusChange} />}
         {activeTab === "achievements" && <AchievementsTab achievements={overview.achievements} />}
         {activeTab === "credit" && groupId && studentId && <CreditTab credit={overview.credit} groupId={groupId} studentId={studentId} />}
-        {activeTab === "progress" && <ProgressTab progress={overview.progress} />}
+        {activeTab === "progress" && groupId && studentId && <ProgressTab progress={overview.progress} groupId={groupId} studentId={studentId} />}
         {activeTab === "notes" && groupId && studentId && (
           <NotesTab notes={overview.notes} groupId={groupId} studentId={studentId} onAdded={handleNoteAdded} />
         )}
@@ -483,7 +483,7 @@ function DiagnosticTab({ data, loading }: { data: DiagnosticTabResponse | null; 
           .filter((kind) => !data.history.some((h) => h.kind === kind))
           .map((kind) => (
             <p key={kind} className="mt-2 text-xs text-slate-400">
-              {kind === "PROGRESS" ? "Progress Check" : "Final Diagnostic"}: пока нет результатов.
+              {kind === "PROGRESS" ? "Промежуточная диагностика" : "Итоговая диагностика"}: пока нет результатов.
             </p>
           ))}
       </Card>
@@ -757,33 +757,27 @@ function CreditTab({ credit, groupId, studentId }: { credit: OverviewResponse["c
   );
 }
 
-// --- Progress (ТЗ разделы 18-19) ------------------------------------------
+// --- Progress (Этап 10: Промежуточная диагностика) ------------------------
 
-function ProgressTab({ progress }: { progress: OverviewResponse["progress"] }) {
+function ProgressTab({ progress, groupId, studentId }: { progress: OverviewResponse["progress"]; groupId: string; studentId: string }) {
   return (
     <Card>
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">START → NOW</h3>
-      <EmptyState
-        title="Промежуточная диагностика ещё не проводилась."
-        hint={`Рекомендуемый срок: через ${progress.recommendedAfterMonths[0]}–${progress.recommendedAfterMonths[1]} месяцев после стартовой диагностики.`}
-      />
-      <div className="mt-4 flex justify-center">
-        <button
-          type="button"
-          disabled
-          title="Модуль Progress Check ещё не реализован — назначение промежуточной диагностики появится на одном из следующих этапов."
-          className="inline-flex cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-400"
-        >
-          Назначить диагностику
-        </button>
+      <h3 className="mb-3 text-sm font-semibold text-slate-700">СТАРТ → СЕЙЧАС</h3>
+      <p className="text-sm text-slate-600">
+        Промежуточная диагностика назначается на вкладке «Диагностика» (группа → студенты → период). Там же видна история
+        назначений для всех студентов группы.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link to="/teacher/diagnostics" className="text-sm font-medium text-brand-600 hover:underline">
+          Назначить диагностику →
+        </Link>
+        <Link to={`/teacher/diagnostics/groups/${groupId}/students/${studentId}`} className="text-sm font-medium text-brand-600 hover:underline">
+          Что было → Что стало → Что изменилось →
+        </Link>
       </div>
       <div className="mt-6 border-t border-slate-100 pt-4">
         <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Внеаудиторная активность</h4>
-        <p className="text-sm text-slate-800">{progress.extracurricularActivity.resultfulCount} результативных мероприятий</p>
-        <p className="mt-1 text-xs text-slate-400">
-          Динамика «Старт → Progress Check» появится вместе с модулем Progress Check — сейчас показано только текущее
-          состояние, без выдуманной точки отсчёта. Это отдельный показатель образовательной активности, а не языкового уровня.
-        </p>
+        <p className="text-sm text-slate-800">{progress.extracurricularActivity.resultfulCount} результативных мероприятий (текущее состояние)</p>
       </div>
     </Card>
   );

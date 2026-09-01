@@ -2,9 +2,14 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
-import { DIAGNOSTIC_ITEMS, TOTAL_DIAGNOSTIC_ITEMS, findItem } from "../diagnostic/itemBank";
+import { TOTAL_DIAGNOSTIC_ITEMS } from "../diagnostic/itemBank";
+import { findItemForForm } from "../diagnostic/forms";
 import { getPublicBlocks, getPublicPassages } from "../diagnostic/publicView";
-import { computeResult } from "../diagnostic/scoring";
+import { DiagnosticCompletionError, finalizeDiagnosticAttempt, serializeDiagnosticResult } from "../diagnostic/completion";
+
+// Start Diagnostic — всегда Form A (ТЗ Этапа 10 вводит Form B только
+// для Промежуточной диагностики, см. routes/studentProgressCheck.ts).
+const FORM = "A" as const;
 
 const router = Router();
 
@@ -16,8 +21,8 @@ function serializeAttempt(attempt: { id: string; status: string; startedAt: Date
     status: attempt.status,
     startedAt: attempt.startedAt,
     completedAt: attempt.completedAt,
-    blocks: getPublicBlocks(),
-    passages: getPublicPassages(),
+    blocks: getPublicBlocks(FORM),
+    passages: getPublicPassages(FORM),
     totalItems: TOTAL_DIAGNOSTIC_ITEMS,
     answers: Object.fromEntries(answers.map((a) => [a.itemId, { selectedOptionIndex: a.selectedOptionIndex, correct: a.correct }])),
   };
@@ -108,7 +113,7 @@ router.post("/attempts/:id/items/:itemId/answer", async (req, res) => {
     });
   }
 
-  const item = findItem(req.params.itemId);
+  const item = findItemForForm(FORM, req.params.itemId);
   if (!item) {
     return res.status(400).json({ error: "UNKNOWN_ITEM", message: "Неизвестное задание." });
   }
@@ -157,50 +162,17 @@ router.post("/attempts/:id/complete", async (req, res) => {
   if (!attempt) {
     return res.status(404).json({ error: "ATTEMPT_NOT_FOUND", message: "Диагностика не найдена." });
   }
-  if (attempt.status === "COMPLETED" && attempt.result) {
-    return res.json(serializeResult(attempt.result));
+
+  try {
+    const result = await finalizeDiagnosticAttempt(attempt, FORM);
+    return res.json(serializeDiagnosticResult(result));
+  } catch (err) {
+    if (err instanceof DiagnosticCompletionError) {
+      return res.status(400).json({ error: err.code, message: err.message, missing: err.missing });
+    }
+    throw err;
   }
-
-  const answeredIds = new Set(attempt.answers.map((a) => a.itemId));
-  const missing = DIAGNOSTIC_ITEMS.filter((i) => !answeredIds.has(i.id)).map((i) => i.id);
-  if (missing.length > 0) {
-    return res.status(400).json({
-      error: "INCOMPLETE",
-      message: "Отвечены не все задания диагностики.",
-      missing,
-    });
-  }
-
-  const computed = computeResult(attempt.answers.map((a) => ({ itemId: a.itemId, correct: a.correct })));
-
-  const [, result] = await prisma.$transaction([
-    prisma.diagnosticAttempt.update({ where: { id: attempt.id }, data: { status: "COMPLETED", completedAt: new Date() } }),
-    prisma.diagnosticResult.create({
-      data: {
-        attemptId: attempt.id,
-        overallCorrect: computed.overallCorrect,
-        overallTotal: computed.overallTotal,
-        overallPercentage: computed.overallPercentage,
-        skillBreakdownJson: JSON.stringify(computed.skillBreakdown),
-        // diagnosticRange остаётся null — см. комментарий в schema.prisma
-        // и docs/STAGE_5_REPORT.md: нет утверждённой матрицы порогов.
-      },
-    }),
-  ]);
-
-  return res.json(serializeResult(result));
 });
-
-function serializeResult(result: { overallCorrect: number; overallTotal: number; overallPercentage: number; skillBreakdownJson: string; diagnosticRange: string | null; computedAt: Date }) {
-  return {
-    overallCorrect: result.overallCorrect,
-    overallTotal: result.overallTotal,
-    overallPercentage: result.overallPercentage,
-    skillBreakdown: JSON.parse(result.skillBreakdownJson),
-    diagnosticRange: result.diagnosticRange,
-    computedAt: result.computedAt,
-  };
-}
 
 router.get("/attempts/:id/result", async (req, res) => {
   const attempt = await prisma.diagnosticAttempt.findFirst({
@@ -213,7 +185,7 @@ router.get("/attempts/:id/result", async (req, res) => {
   if (!attempt.result) {
     return res.status(404).json({ error: "RESULT_NOT_READY", message: "Диагностика ещё не завершена." });
   }
-  return res.json(serializeResult(attempt.result));
+  return res.json(serializeDiagnosticResult(attempt.result));
 });
 
 export default router;
