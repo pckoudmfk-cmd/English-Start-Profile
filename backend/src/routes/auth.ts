@@ -6,10 +6,12 @@ import { hashPassword, verifyPassword, generatePasswordResetToken, hashToken } f
 import { signAuthToken } from "../utils/jwt";
 import { SELF_REGISTERABLE_ROLES } from "../utils/roles";
 import { AUTH_COOKIE_NAME, requireAuth } from "../middleware/auth";
+import { sendPasswordResetEmail } from "../utils/mailer";
 
 const router = Router();
 
 const cookieSecure = process.env.COOKIE_SECURE === "true";
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
 
 const cookieOptions: CookieOptions = {
   httpOnly: true,
@@ -136,12 +138,24 @@ router.post("/forgot-password", async (req, res) => {
     data: { passwordResetTokenHash: tokenHash, passwordResetExpiresAt: expiresAt },
   });
 
+  // Реальная отправка (Этап 14) — через SMTP, если он настроен
+  // (SMTP_HOST/PORT/USER/PASS в .env); если нет — sendPasswordResetEmail
+  // тихо возвращает sent:false, ничего не бросая (см. utils/mailer.ts).
+  // Независимо от результата отправки, наружу уходит один и тот же
+  // generic-ответ — иначе по разнице ответов можно было бы узнать,
+  // существует ли email (тот же принцип, что и выше в этом маршруте).
+  const resetUrl = `${FRONTEND_ORIGIN}/reset-password?token=${token}`;
+  const emailResult = await sendPasswordResetEmail(email, resetUrl);
+
   if (!exposeDevPasswordResetToken) {
     return res.json(genericResponse);
   }
 
   // eslint-disable-next-line no-console
-  console.log(`[dev] Ссылка восстановления доступа для ${email}: /reset-password?token=${token}`);
+  console.log(
+    `[dev] Ссылка восстановления доступа для ${email}: /reset-password?token=${token}` +
+      (emailResult.sent ? " (письмо также отправлено по SMTP)" : ` (SMTP-письмо не отправлено: ${emailResult.reason})`)
+  );
   return res.json({ ...genericResponse, devToken: token });
 });
 
