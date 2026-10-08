@@ -23,7 +23,10 @@ QA-аудит), [`docs/STAGE_12_REPORT.md`](docs/STAGE_12_REPORT.md)
 аккаунтов и сценариев) и
 [`docs/STAGE_14_PRODUCTION_READINESS_REPORT.md`](docs/STAGE_14_PRODUCTION_READINESS_REPORT.md)
 (подготовка к публикации — **READY WITH LIMITATIONS**, полный
-production-readiness чек-лист).
+production-readiness чек-лист) и
+[`docs/STAGE_11_REAUDIT_REPORT.md`](docs/STAGE_11_REAUDIT_REPORT.md)
+(повторный финальный QA-аудит после Этапов 12–14 и SMTP-исправления —
+статус переподтверждён, новых находок нет).
 
 ## Реализовано
 
